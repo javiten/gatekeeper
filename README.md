@@ -33,24 +33,24 @@ It costs about **$0.01 per call** on Twilio. Everything else runs free on Google
 
 ```mermaid
 sequenceDiagram
-    participant Box as Gate call box
-    participant T as Twilio number
+    participant CB as Gate call box
+    participant TW as Twilio number
     participant GAS as Apps Script web app
-    participant Bin as TwiML Bin (fallback)
-    participant You as You (Gmail / Sheets)
+    participant BIN as TwiML Bin (fallback)
+    participant ME as You (Gmail and Sheets)
 
-    Box->>T: Visitor presses your unit
-    T->>GAS: POST "A call comes in" (type=voice)
-    alt Active
-        GAS-->>T: <Pause/> <Play digits="9"/> <Hangup/>
-        T-->>Box: DTMF 9 → gate opens
-    else Paused
-        GAS-->>T: <Reject reason="busy"/>
+    CB->>TW: Visitor dials your unit
+    TW->>GAS: POST "A call comes in" (type=voice)
+    alt Opening active
+        GAS-->>TW: Pause, play DTMF 9, hang up
+        TW-->>CB: DTMF 9 opens the gate
+    else Opening paused
+        GAS-->>TW: Reject (busy)
     end
-    Note over T,Bin: If Apps Script errors or times out,<br/>Twilio uses the TwiML Bin instead
-    T->>GAS: POST "Call status changes" (call finished)
-    GAS->>You: Log row in Google Sheet
-    GAS->>You: HTML alert email
+    Note over TW,BIN: If Apps Script errors or times out,<br/>Twilio uses the TwiML Bin instead
+    TW->>GAS: POST "Call status changes" (call finished)
+    GAS->>ME: Log a row in the Google Sheet
+    GAS->>ME: Send the HTML alert email
 ```
 
 ---
