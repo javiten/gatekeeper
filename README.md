@@ -1,8 +1,10 @@
 # 🔓 Gatekeeper
 
+[![Release](https://img.shields.io/github/v/release/javiten/gatekeeper?label=release)](https://github.com/javiten/gatekeeper/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **Hands-free gate opener with beautiful email alerts — built on Twilio + Google Apps Script.**
 
-Gatekeeper automates access to a **gated community**. The community's call box phones me every time a visitor or delivery arrives, and I had to pick up and press **9** to open the gate. Gatekeeper answers those calls automatically, opens the gate, and emails me a clean card with what happened. It also keeps a call history, sends a weekly summary, and lets me pause automatic opening from my phone.
+Gatekeeper automates access to a **gated community**. The community's call box phones me every time a visitor or delivery arrives, and I had to pick up and press **9** to open the gate. Gatekeeper answers those calls automatically, opens the gate, and emails me a clean card with what happened. It also keeps a call history, sends a weekly summary, and since **v1.1** it has an **admin panel with schedules**. For example, I can keep the gate from opening automatically between midnight and 7 AM and forward those calls to my phone.
 
 It costs about **$0.01 per call** on Twilio. Everything else runs free on Google.
 
@@ -23,8 +25,11 @@ It costs about **$0.01 per call** on Twilio. Everything else runs free on Google
 | 🌙 | **Night alert** | Purple email when the gate opens between 12 AM and 6 AM. |
 | ⚠️ | **Unknown caller** | Orange email if the call didn't come from your call box number. |
 | 📊 | **Call history** | Every call is logged as a row in a Google Sheet. |
-| 🗓️ | **Weekly summary** | Sunday 8 PM email: openings, failures, night openings, peak hour, busiest day. |
-| ⏸️ | **Pause / resume** | One tap from any email to stop auto-opening (vacation mode). Calls are rejected while paused. |
+| 📅 | **Weekly summary** | Sunday 8 PM email: openings, failures, night openings, peak hour, busiest day. |
+| 🗓️ | **Schedules** *(v1.1)* | Block auto-opening on chosen days and hours, including overnight ranges like 22:00 → 06:00. |
+| 🎛️ | **Pause actions** *(v1.1)* | When paused, choose what calls do: **reject**, **forward to your phone** (and if you don't answer, hang up or open anyway), **play a message**, or **open anyway with an urgent alert**. |
+| 📱 | **Admin panel** *(v1.1)* | Mobile web app, **only you** can open it (Google sign-in). Modes: Automatic / Always open / Paused. Edit schedules, forwarding and alerts, and see recent calls. |
+| 🌐 | **English / Spanish** *(v1.1)* | Set `LANG = 'en'` or `'es'`. |
 | 🛟 | **Fail-safe** | If Google is unreachable, Twilio falls back to a static TwiML Bin, so the gate keeps opening. |
 
 ---
@@ -44,8 +49,8 @@ sequenceDiagram
     alt Opening active
         GAS-->>TW: Pause, play DTMF 9, hang up
         TW-->>CB: DTMF 9 opens the gate
-    else Opening paused
-        GAS-->>TW: Reject (busy)
+    else Paused (manual or schedule)
+        GAS-->>TW: Reject, forward to your phone, play a message, or open + alert
     end
     Note over TW,BIN: If Apps Script errors or times out,<br/>Twilio uses the TwiML Bin instead
     TW->>GAS: POST "Call status changes" (call finished)
@@ -55,7 +60,17 @@ sequenceDiagram
 
 ---
 
-## 📸 Screenshots
+## 📱 Admin panel (v1.1)
+
+![Gatekeeper admin panel](docs/screenshots/admin-panel.png)
+
+New alert types for the v1.1 actions: forwarded call, rejected call, and opened during restricted hours:
+
+![v1.1 alerts](docs/screenshots/v11-alerts.png)
+
+---
+
+## 📸 More screenshots
 
 <table>
 <tr>
@@ -100,6 +115,7 @@ In Twilio Console → **TwiML Bins** → *Create*, paste [`twilio/gate-auto-answ
    | `ACCOUNT_SID` | `AC…` | Twilio Console → Account info. |
    | `CALL_BOX` | `+15550100123` | The number your call box calls from, in E.164 format. |
    | `OPEN_DIGIT` | `9` | The digit your gate expects. |
+   | `LANG` | `en` | `en` or `es`, for emails, the panel and spoken messages. |
    | `TZ` | `America/New_York` | Your time zone. |
 
 4. Select the `setup` function and click **Run**. Approve the permissions. Google will warn that the app is unverified; that's expected for your own script (*Advanced → Go to project*).
@@ -112,6 +128,12 @@ In Twilio Console → **TwiML Bins** → *Create*, paste [`twilio/gate-auto-answ
 
 Copy the `/exec` URL, paste it into `WEB_URL` in the config, save, then **Deploy → Manage deployments → Edit → New version**. The URL stays the same.
 
+### 3b. Deploy the admin panel *(v1.1)*
+**Deploy → New deployment → Web app**, with *Execute as:* **Me** and *Who has access:* **Only myself**.
+Open that URL on your phone and add it to your home screen. Only your Google account can open it, and Gatekeeper remembers the URL so the ⚙️ button in every email links to it.
+
+> When you change the code later, update **both** deployments to the new version (Manage deployments → Edit → Version).
+
 ### 4. Wire up your Twilio number
 Twilio Console → **Phone Numbers → Active numbers → (your number) → Voice configuration**:
 
@@ -123,7 +145,9 @@ Twilio Console → **Phone Numbers → Active numbers → (your number) → Voic
 
 Save, then call your Twilio number from the call box (or any phone) to test.
 
-> 💡 **Just want the email alerts?** Leave *A call comes in* pointing at your existing TwiML Bin and only set *Call status changes*. You'll get every alert except pause/resume.
+> 💡 **Just want the email alerts?** Leave *A call comes in* pointing at your existing TwiML Bin and only set *Call status changes*. You'll get every alert, but schedules and pause actions won't apply.
+
+> 📞 **Forwarding** uses Twilio `<Dial>`, which bills the outgoing leg at standard voice rates (about $0.01–0.02/min in the US). The call box's number shows as the caller ID, and you can press **9** on your phone to let the visitor in.
 
 ---
 
@@ -131,17 +155,24 @@ Save, then call your Twilio number from the call box (or any phone) to test.
 
 - **Treat `TOKEN` like a password.** Anyone who has it can pause your gate. Never commit your real config. Rotate it by changing the constant, redeploying, and updating the two Twilio URLs.
 - Requests must include both the token and your Twilio `AccountSid`. Anything else gets `forbidden`.
-- The pause link opens a confirmation page first, so email link scanners can't toggle it by accident.
+- The **admin panel** only works for the script owner: it checks your Google identity on every request, and the panel deployment is set to *Only myself*. Strangers get a plain "Access denied".
+- The token-only pause page from v1.0 still works as a quick fallback. It opens a confirmation page first, so email link scanners can't toggle it by accident.
 - Fail-open by design: if the script is down, the TwiML Bin keeps opening the gate exactly as before.
 
 ---
 
 ## 🛠️ Customizing
 
-- **Night window:** `NIGHT_FROM` / `NIGHT_TO`
-- **Summary schedule:** edit the trigger in `setup()` (default Sunday 8 PM), then run `setup()` again
+- **Schedules, pause actions, forwarding, message, night window, weekly summary:** all in the admin panel, no code changes
+- **Summary day/time:** edit the trigger in `setup()` (default Sunday 8 PM), then run `setup()` again
 - **Look & feel:** the `stat`, `roundButton`, `header` and `card` helpers build the emails, using inline CSS for Gmail and iOS Mail
 - **Test the summary:** run `testSummary()` from the editor
+
+---
+
+## 🆕 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md). **Upgrading from v1.0:** paste the new `Code.gs`, keep your config values, run `setup()` once (it migrates your pause state and trigger), update your webhook deployment to the new version, and create the panel deployment (step 3b). Your Twilio URLs don't change.
 
 ---
 
@@ -151,6 +182,7 @@ Gatekeeper is a **personal project**, shared freely so others can learn from it 
 
 - **It can be dangerous.** While it's active, *anyone* who reaches your unit on the call box gets in: visitors, delivery drivers, or a stranger who simply tries your number.
 - **You don't know who enters.** Gatekeeper tells you the date and time the gate opened and which number called. It cannot identify the person at the gate.
+- **"Open anyway" options** (*Always open* mode, *Open anyway + alert*, and *If I don't answer → open the gate anyway*) keep the gate opening even when you're not around. Use them knowingly.
 - **It's best for family or household use**, where the convenience of not having to answer every call outweighs the risk. Use the ⏸️ pause button when you're away or don't expect anyone.
 - **Check your community's rules.** Some HOAs or property managers don't allow automated gate access.
 - **Use at your own risk.** The author(s) take **no responsibility** for misuse of this project, unauthorized access, property loss, or any other damage resulting from its use. The software is provided "as is", without warranty of any kind (see [LICENSE](LICENSE)).
