@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fallback TwiML Bin: answers the call box, sends the open digit and hangs up.
+     Set this as "Primary handler fails" so the gate still opens if Apps Script is down. -->
+<Response>
+    <Pause length="1"/>
+    <Play digits="9"/>
+    <Pause length="1"/>
+    <Hangup/>
+</Response>
