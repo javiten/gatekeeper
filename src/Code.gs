@@ -21,7 +21,7 @@ const TZ          = 'America/New_York';                  // your time zone
 const WEB_URL     = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'; // public (Twilio) deployment URL
 // </CONFIG> -----------------------------------------------------------
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const PROPS   = PropertiesService.getScriptProperties();
 const ACTIONS = ['reject', 'forward', 'message', 'open_alert'];
 
@@ -63,7 +63,9 @@ const I18N = {
       err_phone: 'Enter your phone number in +1XXXXXXXXXX format to use forwarding.', err_time: 'Check the schedule times (HH:MM).',
       err_days: 'Each schedule needs at least one day.', version: 'Version',
       denied: 'Access denied', sp_active: 'Opening active', sp_paused: 'Opening paused', sp_active_d: 'The gate opens automatically when the call box dials in.',
-      sp_paused_d: 'Calls from the call box will NOT open the gate.', sp_pause: 'Pause opening', sp_resume: 'Resume opening', sp_saved: '✓ Saved'
+      sp_paused_d: 'Calls from the call box will NOT open the gate.', sp_pause: 'Pause opening', sp_resume: 'Resume opening', sp_saved: '✓ Saved',
+      access: 'Access', accessHint: 'This page opens with your private link. Save it to your home screen and don\'t share it: anyone with the link can control the gate.',
+      copyLink: 'Copy link', copied: 'Copied ✓', newLink: 'Create a new link', newLinkConfirm: 'The current link (and the ⚙️ button in old emails) will stop working. Continue?', newLinkDone: 'New link created. Open it and save it to your home screen:'
     }
   },
   es: {
@@ -99,7 +101,9 @@ const I18N = {
       err_phone: 'Ingresá tu celular en formato +1XXXXXXXXXX para usar el desvío.', err_time: 'Revisá las horas de los horarios (HH:MM).',
       err_days: 'Cada horario necesita al menos un día.', version: 'Versión',
       denied: 'Acceso denegado', sp_active: 'Apertura activa', sp_paused: 'Apertura en pausa', sp_active_d: 'El gate se abre solo cuando llama el portero.',
-      sp_paused_d: 'Las llamadas del portero NO abren el gate.', sp_pause: 'Pausar apertura', sp_resume: 'Activar apertura', sp_saved: '✓ Cambio guardado'
+      sp_paused_d: 'Las llamadas del portero NO abren el gate.', sp_pause: 'Pausar apertura', sp_resume: 'Activar apertura', sp_saved: '✓ Cambio guardado',
+      access: 'Acceso', accessHint: 'Este panel se abre con tu link privado. Guardalo en la pantalla de inicio y no lo compartas: quien tenga el link puede manejar el gate.',
+      copyLink: 'Copiar link', copied: 'Copiado ✓', newLink: 'Generar un link nuevo', newLinkConfirm: 'El link actual (y el botón ⚙️ de los emails viejos) va a dejar de funcionar. ¿Seguir?', newLinkDone: 'Link nuevo creado. Abrilo y guardalo en la pantalla de inicio:'
     }
   }
 };
@@ -177,10 +181,8 @@ function doPost(e) {
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (isOwner_()) {                                       // signed in as the script owner → admin panel
-    try { PROPS.setProperty('panelUrl', ScriptApp.getService().getUrl()); } catch (err) {}
-    return panelPage_();
-  }
+  if (p.p && p.p === panelKey_()) return panelPage_(p.p);  // private panel link (works on any phone, no Google sign-in)
+  if (isOwner_()) return panelPage_('');                  // signed in as the script owner
   if (p.k === TOKEN) return quickPage_(p.action || ({ pausar: 'pause', activar: 'resume' })[p.accion]);
   return txt_(T.denied);   // plain text: no HtmlService bridge for strangers
 }
@@ -191,6 +193,15 @@ function isOwner_() {
     return !!me && me === Session.getEffectiveUser().getEmail();
   } catch (e) { return false; }
 }
+
+// Private panel link: WEB_URL?p=<key>. The key lives only in Script Properties (never in the code).
+function panelKey_() {
+  let k = PROPS.getProperty('panelKey');
+  if (!k) { k = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''); PROPS.setProperty('panelKey', k); }
+  return k;
+}
+function panelLink_() { return WEB_URL + '?p=' + panelKey_(); }
+function auth_(key) { if (!(isOwner_() || (key && key === panelKey_()))) throw new Error(T.denied); }
 
 // ---------------------------------------------------------------------
 //  1) ANSWER THE CALL
@@ -381,6 +392,7 @@ function setup() {
     .forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('weeklySummary').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(20).inTimezone(TZ).create();
   console.log('Gatekeeper ' + VERSION + ' ready. History: ' + PROPS.getProperty('sheetUrl'));
+  console.log('Admin panel (private link, keep it secret): ' + panelLink_());
 }
 
 function testSummary() { if (isOwner_()) weeklySummary(); }
@@ -388,17 +400,23 @@ function testSummary() { if (isOwner_()) weeklySummary(); }
 // ---------------------------------------------------------------------
 //  6) ADMIN PANEL — server API (owner only)
 // ---------------------------------------------------------------------
-function panelData() {
-  if (!isOwner_()) throw new Error(T.denied);
+function panelData(key) {
+  auth_(key);
   const c = cfg_(), s = state_(new Date(), c);
   return { cfg: c, state: describeState_(s, c), recent: recentCalls_(8), sheetUrl: PROPS.getProperty('sheetUrl') || '' };
 }
 
-function panelSave(c) {
-  if (!isOwner_()) throw new Error(T.denied);
-  const clean = validate_(c);
-  saveCfg_(clean);
-  return panelData();
+function panelSave(c, key) {
+  auth_(key);
+  saveCfg_(validate_(c));
+  return panelData(key);
+}
+
+// Invalidate the current private link and create a new one.
+function panelNewLink(key) {
+  auth_(key);
+  PROPS.deleteProperty('panelKey');
+  return panelLink_();
 }
 
 function validate_(c) {
@@ -466,7 +484,7 @@ function note_(text, color, bg) {
   return '<div style="text-align:center;margin-top:14px;font-size:13px;color:' + color + ';background:' + bg + ';border-radius:12px;padding:8px">' + text + '</div>';
 }
 function buttonRow_(extra) {
-  const panel = PROPS.getProperty('panelUrl') || (WEB_URL + '?k=' + TOKEN);
+  const panel = panelLink_();
   return '<div style="height:1px;background:#e2e8f0;margin:28px 0 22px"></div>' +
     '<table role="presentation" align="center" style="margin:0 auto;border-collapse:collapse"><tr>' + (extra || '') +
     roundButton_(PROPS.getProperty('sheetUrl') || '#', '📊', T.history, '#fef9c3') +
@@ -520,8 +538,8 @@ function quickPage_(action) {
 // ---------------------------------------------------------------------
 //  9) ADMIN PANEL — page
 // ---------------------------------------------------------------------
-function panelPage_() {
-  const boot = JSON.stringify({ data: panelData(), T: T, days: L.daysShort, version: VERSION }).replace(/</g, '\\u003c');
+function panelPage_(key) {
+  const boot = JSON.stringify({ data: panelData(key), key: key, link: panelLink_(), T: T, days: L.daysShort, version: VERSION }).replace(/</g, '\\u003c');
   return HtmlService.createHtmlOutput(PANEL_HTML_.replace('__BOOT__', () => boot))
     .setTitle('Gatekeeper').addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
@@ -597,6 +615,8 @@ function render(){
     '<div class="row"><span>'+T.summaryOn+'</span><label class="sw"><input type="checkbox" id="sum"'+(S.summary?' checked':'')+'><span></span></label></div></div>';
   html+='<div class="card calls"><h2>'+T.recent+'</h2>'+(D.recent.length?D.recent.map(function(c){return '<div class="c"><div class="dot">'+(ICON[c.code]||'📞')+'</div><div class="m"><div class="r">'+h(c.result)+'</div><div class="w">'+h(c.day)+' · '+h(c.time)+'</div></div></div>'}).join(''):'<div class="hint">'+T.noCalls+'</div>')+
     (D.sheetUrl?'<div style="margin-top:10px"><a class="link" target="_blank" href="'+h(D.sheetUrl)+'">📊 '+T.history+' →</a></div>':'')+'</div>';
+  html+='<div class="card"><h2>'+T.access+'</h2><div class="hint" style="margin:-4px 0 12px">'+T.accessHint+'</div>'+
+    '<div class="two"><button class="add" id="cp" style="border-style:solid">🔗 '+T.copyLink+'</button><button class="add" id="nl" style="border-style:solid;color:#b91c1c">🔄 '+T.newLink+'</button></div><div class="hint" id="nlmsg"></div></div>';
   html+='<div class="err" id="err"></div>';
   document.getElementById('app').innerHTML=html; bind();
 }
@@ -614,11 +634,14 @@ function bind(){
   [['fn',function(v){S.forward.number=v}],['ft',function(v){S.forward.timeout=+v}],['fb',function(v){S.forward.fallback=v}],['msg',function(v){S.message=v}],
    ['nf',function(v){S.night.from=+v}],['nt',function(v){S.night.to=+v}]].forEach(function(x){var e=document.getElementById(x[0]);e.oninput=e.onchange=function(){x[1](e.value);mark()}});
   document.getElementById('sum').onchange=function(e){S.summary=e.target.checked;mark()};
+  document.getElementById('cp').onclick=function(){var b=this;try{navigator.clipboard.writeText(B.link).then(function(){b.textContent=T.copied})}catch(e){prompt('',B.link)}};
+  document.getElementById('nl').onclick=function(){if(!confirm(T.newLinkConfirm))return;google.script.run.withSuccessHandler(function(u){B.link=u;var m=document.getElementById('nlmsg');m.innerHTML=T.newLinkDone+'<br><a class="link" target="_top" href="'+h(u)+'">'+h(u)+'</a>'}).withFailureHandler(fail).panelNewLink(B.key)};
 }
+function fail(e){var er=document.getElementById('err');er.textContent=(e&&e.message)||e;er.style.display='block'}
 function save(){
   var b=document.getElementById('save'),err=document.getElementById('err');b.textContent=T.saving;err.style.display='none';
   google.script.run.withSuccessHandler(function(d){D=d;S=JSON.parse(JSON.stringify(d.cfg));dirty=false;render();b.classList.remove('dirty');b.textContent=T.saved;setTimeout(function(){if(!dirty)b.textContent=T.save},1800)})
-    .withFailureHandler(function(e){var er=document.getElementById('err');er.textContent=(e&&e.message)||e;er.style.display='block';b.textContent=T.save;b.classList.add('dirty')}).panelSave(S);
+    .withFailureHandler(function(e){fail(e);b.textContent=T.save;b.classList.add('dirty')}).panelSave(S,B.key);
 }
 document.getElementById('save').onclick=save;document.getElementById('save').textContent=T.save;render();
 </script></body></html>`;
