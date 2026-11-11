@@ -28,7 +28,7 @@ It costs about **$0.01 per call** on Twilio. Everything else runs free on Google
 | 📅 | **Weekly summary** | Sunday 8 PM email: openings, failures, night openings, peak hour, busiest day. |
 | 🗓️ | **Schedules** *(v1.1)* | Block auto-opening on chosen days and hours, including overnight ranges like 22:00 → 06:00. |
 | 🎛️ | **Pause actions** *(v1.1)* | When paused, choose what calls do: **reject**, **forward to your phone** (and if you don't answer, hang up or open anyway), **play a message**, or **open anyway with an urgent alert**. |
-| 📱 | **Admin panel** *(v1.1)* | Mobile web app, **only you** can open it (Google sign-in). Modes: Automatic / Always open / Paused. Edit schedules, forwarding and alerts, and see recent calls. |
+| 📱 | **Admin panel** *(v1.1)* | Mobile web app opened with your **private link**, no Google sign-in needed. Modes: Automatic / Always open / Paused. Edit schedules, forwarding and alerts, and see recent calls. |
 | 🌐 | **English / Spanish** *(v1.1)* | Set `LANG = 'en'` or `'es'`. |
 | 🛟 | **Fail-safe** | If Google is unreachable, Twilio falls back to a static TwiML Bin, so the gate keeps opening. |
 
@@ -128,9 +128,8 @@ In Twilio Console → **TwiML Bins** → *Create*, paste [`twilio/gate-auto-answ
 
 Copy the `/exec` URL, paste it into `WEB_URL` in the config, save, then **Deploy → Manage deployments → Edit → New version**. The URL stays the same.
 
-### 3b. Deploy the admin panel *(v1.1)*
-**Deploy → New deployment → Web app**, with *Execute as:* **Me** and *Who has access:* **Only myself**.
-Open that URL on your phone and add it to your home screen. Only your Google account can open it, and Gatekeeper remembers the URL so the ⚙️ button in every email links to it.
+### 3b. Open the admin panel *(v1.1)*
+Run `setup()` again and copy the **private panel link** from the log (`…/exec?p=…`). It opens on any phone with no Google sign-in. Add it to your home screen, and **don't share it**: anyone with the link can control the gate. You can create a new link from the panel at any time, which disables the old one. The ⚙️ button in every email uses the same link.
 
 > When you change the code later, update **both** deployments to the new version (Manage deployments → Edit → Version).
 
@@ -155,7 +154,7 @@ Save, then call your Twilio number from the call box (or any phone) to test.
 
 - **Treat `TOKEN` like a password.** Anyone who has it can pause your gate. Never commit your real config. Rotate it by changing the constant, redeploying, and updating the two Twilio URLs.
 - Requests must include both the token and your Twilio `AccountSid`. Anything else gets `forbidden`.
-- The **admin panel** only works for the script owner: it checks your Google identity on every request, and the panel deployment is set to *Only myself*. Strangers get a plain "Access denied".
+- The **admin panel** opens only with your private link: a random 64-character key stored in Script Properties, never in the code. If you also open the web app URL while signed in as the script owner, you get the panel too. Everyone else gets a plain "Access denied". You can rotate the link from the panel.
 - The token-only pause page from v1.0 still works as a quick fallback. It opens a confirmation page first, so email link scanners can't toggle it by accident.
 - Fail-open by design: if the script is down, the TwiML Bin keeps opening the gate exactly as before.
 
@@ -172,7 +171,7 @@ Save, then call your Twilio number from the call box (or any phone) to test.
 
 ## 🆕 Changelog
 
-See [CHANGELOG.md](CHANGELOG.md). **Upgrading from v1.0:** paste the new `Code.gs`, keep your config values, run `setup()` once (it migrates your pause state and trigger), update your webhook deployment to the new version, and create the panel deployment (step 3b). Your Twilio URLs don't change.
+See [CHANGELOG.md](CHANGELOG.md). **Upgrading from v1.0:** paste the new `Code.gs`, keep your config values, run `setup()` once (it migrates your pause state and trigger), update your webhook deployment to the new version, and get your private panel link (step 3b). Your Twilio URLs don't change.
 
 ---
 

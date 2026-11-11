@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1.1 — 2026-11-10
+### Fixed
+- The admin panel failed to open on phones ("Sorry, unable to open the file at this time") when Safari wasn't signed in to Google or had several Google accounts. It now opens with a **private link** (`…/exec?p=<key>`) that works without Google sign-in.
+### Added
+- **Access** section in the panel: copy the link, or create a new one (the old link stops working).
+- The ⚙️ Panel button in emails uses the private link.
+
 ## v1.1.0 — 2026-11-10
 
 ### Added
