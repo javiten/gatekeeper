@@ -19,9 +19,10 @@ const CALL_BOX    = '+15550100123';                      // number your call box
 const OPEN_DIGIT  = '9';                                 // DTMF digit that opens your gate
 const TZ          = 'America/New_York';                  // your time zone
 const WEB_URL     = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'; // public (Twilio) deployment URL
+const PANEL_HOST  = 'https://javiten.github.io/gatekeeper/panel/';   // static admin panel (or host docs/panel yourself)
 // </CONFIG> -----------------------------------------------------------
 
-const VERSION = '1.1.1';
+const VERSION = '1.2.0';
 const PROPS   = PropertiesService.getScriptProperties();
 const ACTIONS = ['reject', 'forward', 'message', 'open_alert'];
 
@@ -171,6 +172,11 @@ function state_(d, c) {
 //  WEB ENTRY POINTS
 // ---------------------------------------------------------------------
 function doPost(e) {
+  // JSON API used by the hosted admin panel (Twilio always posts form-urlencoded)
+  if (e && e.postData && !/x-www-form-urlencoded/.test(e.postData.type || '')) {
+    let b = null; try { b = JSON.parse(e.postData.contents); } catch (err) {}
+    if (b && b.api) return api_(b);
+  }
   const p = (e && e.parameter) || {};
   if (p.k !== TOKEN || p.AccountSid !== ACCOUNT_SID) return txt_('forbidden');
   const type = p.type || p.tipo;
@@ -200,7 +206,18 @@ function panelKey_() {
   if (!k) { k = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''); PROPS.setProperty('panelKey', k); }
   return k;
 }
-function panelLink_() { return WEB_URL + '?p=' + panelKey_(); }
+function panelLink_() { return PANEL_HOST + '#api=' + encodeURIComponent(WEB_URL) + '&k=' + panelKey_(); }
+
+function api_(b) {
+  const out = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+  try {
+    const meta = () => ({ T: T, days: L.daysShort, version: VERSION, link: panelLink_() });
+    if (b.api === 'data')    return out(Object.assign(panelData(b.key), meta()));
+    if (b.api === 'save')    return out(Object.assign(panelSave(b.cfg || {}, b.key), meta()));
+    if (b.api === 'newLink') return out({ link: panelNewLink(b.key) });
+    return out({ error: 'unknown' });
+  } catch (err) { return out({ error: String(err.message || err) }); }
+}
 function auth_(key) { if (!(isOwner_() || (key && key === panelKey_()))) throw new Error(T.denied); }
 
 // ---------------------------------------------------------------------
@@ -545,7 +562,8 @@ function panelPage_(key) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
 
-const PANEL_HTML_ = `<!doctype html><html><head><meta charset="utf-8">
+const PANEL_HTML_ = `<!doctype html><html><head><meta charset="utf-8"><title>Gatekeeper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Gatekeeper"><meta name="referrer" content="no-referrer">
 <style>
 :root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--green:#16a34a;--slate:#475569;--violet:#7c3aed;--blue:#2563eb}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:16px 14px 110px}
@@ -583,7 +601,24 @@ a.link{color:var(--blue);text-decoration:none;font-weight:600;font-size:14px}
 </style></head><body><div class="wrap" id="app"></div>
 <div class="bar"><button class="save" id="save"></button></div>
 <script>
-var B=__BOOT__, T=B.T, S=JSON.parse(JSON.stringify(B.data.cfg)), D=B.data, dirty=false;
+var B=__BOOT__, T, S, D, dirty=false, API=null, KEY='';
+function call(fn,arg,ok,bad){
+  if(window.google&&google.script&&google.script.run){var r=google.script.run.withSuccessHandler(ok).withFailureHandler(bad);
+    if(fn=='save')r.panelSave(arg,B.key);else if(fn=='newLink')r.panelNewLink(B.key);return}
+  fetch(API,{method:'POST',body:JSON.stringify({api:fn,key:KEY,cfg:arg})}).then(function(r){return r.json()})
+    .then(function(j){if(j.error)bad({message:j.error});else ok(fn=='newLink'?j.link:j)}).catch(function(e){bad({message:String(e)})});
+}
+function start(b){B=b;T=B.T;D=B.data;S=JSON.parse(JSON.stringify(D.cfg));var sv=document.getElementById('save');sv.onclick=save;sv.textContent=T.save;render()}
+function boot(){
+  if(B){start(B);return}
+  var q={};(location.hash||'').replace(/^#/,'').split('&').forEach(function(kv){var i=kv.indexOf('=');if(i>0)q[kv.slice(0,i)]=decodeURIComponent(kv.slice(i+1))});
+  try{if(q.api&&q.k)localStorage.setItem('gk',JSON.stringify(q));else q=JSON.parse(localStorage.getItem('gk')||'{}')}catch(e){}
+  API=q.api;KEY=q.k;var app=document.getElementById('app');
+  if(!API||!KEY){app.innerHTML='<div class="card hero k-paused"><div class="ring">🔒</div><div class="t">Gatekeeper</div><div class="s">Abrí tu link privado del panel · Open your private panel link</div></div>';return}
+  app.innerHTML='<div class="card hero k-open"><div class="ring">⏳</div><div class="t">Gatekeeper</div><div class="s">…</div></div>';
+  call('data',null,function(j){start({data:j,key:KEY,link:j.link,T:j.T,days:j.days,version:j.version})},
+    function(e){app.innerHTML='<div class="card hero k-paused"><div class="ring">⚠️</div><div class="t">Gatekeeper</div><div class="s">'+h(e.message)+'</div></div>'});
+}
 var ACT=['reject','forward','message','open_alert'];
 var ICON={opened:'🔓',opened_alert:'🚨',failed:'❌',rejected:'⛔',message:'🔇',fwd_answered:'📲',fwd_missed:'📵',fwd_opened:'🔓'};
 function h(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -635,15 +670,15 @@ function bind(){
    ['nf',function(v){S.night.from=+v}],['nt',function(v){S.night.to=+v}]].forEach(function(x){var e=document.getElementById(x[0]);e.oninput=e.onchange=function(){x[1](e.value);mark()}});
   document.getElementById('sum').onchange=function(e){S.summary=e.target.checked;mark()};
   document.getElementById('cp').onclick=function(){var b=this;try{navigator.clipboard.writeText(B.link).then(function(){b.textContent=T.copied})}catch(e){prompt('',B.link)}};
-  document.getElementById('nl').onclick=function(){if(!confirm(T.newLinkConfirm))return;google.script.run.withSuccessHandler(function(u){B.link=u;var m=document.getElementById('nlmsg');m.innerHTML=T.newLinkDone+'<br><a class="link" target="_top" href="'+h(u)+'">'+h(u)+'</a>'}).withFailureHandler(fail).panelNewLink(B.key)};
+  document.getElementById('nl').onclick=function(){if(!confirm(T.newLinkConfirm))return;call('newLink',null,function(u){B.link=u;var m=document.getElementById('nlmsg');m.innerHTML=T.newLinkDone+'<br><a class="link" target="_top" href="'+h(u)+'">'+h(u)+'</a>';try{var q=JSON.parse(localStorage.getItem('gk')||'{}');var k=(u.match(/[#&]k=([a-f0-9]+)/)||[])[1];if(k){KEY=k;B.key=k;q.k=k;localStorage.setItem('gk',JSON.stringify(q))}}catch(e){}},fail)};
 }
 function fail(e){var er=document.getElementById('err');er.textContent=(e&&e.message)||e;er.style.display='block'}
 function save(){
   var b=document.getElementById('save'),err=document.getElementById('err');b.textContent=T.saving;err.style.display='none';
-  google.script.run.withSuccessHandler(function(d){D=d;S=JSON.parse(JSON.stringify(d.cfg));dirty=false;render();b.classList.remove('dirty');b.textContent=T.saved;setTimeout(function(){if(!dirty)b.textContent=T.save},1800)})
-    .withFailureHandler(function(e){fail(e);b.textContent=T.save;b.classList.add('dirty')}).panelSave(S,B.key);
+  call('save',S,function(d){D=d;S=JSON.parse(JSON.stringify(d.cfg));dirty=false;render();b.classList.remove('dirty');b.textContent=T.saved;setTimeout(function(){if(!dirty)b.textContent=T.save},1800)},
+    function(e){fail(e);b.textContent=T.save;b.classList.add('dirty')});
 }
-document.getElementById('save').onclick=save;document.getElementById('save').textContent=T.save;render();
+boot();
 </script></body></html>`;
 
 // ---------------------------------------------------------------------
