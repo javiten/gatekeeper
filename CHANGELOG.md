@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.0 — 2026-11-10
+### Changed
+- **The admin panel is now hosted on GitHub Pages** and talks to Apps Script through a JSON API (`doPost` with `{api, key, cfg}`). It opens reliably on iPhone and Android, even with no Google session or with several Google accounts.
+- The private link format is `PANEL_HOST#api=<web app URL>&k=<key>`. The key stays after the `#`, so it's never sent to the page host.
+- New config value: `PANEL_HOST`.
+### Compatibility
+- Opening the web app URL while signed in as the owner still serves the built-in panel.
+
 ## v1.1.1 — 2026-11-10
 ### Fixed
 - The admin panel failed to open on phones ("Sorry, unable to open the file at this time") when Safari wasn't signed in to Google or had several Google accounts. It now opens with a **private link** (`…/exec?p=<key>`) that works without Google sign-in.

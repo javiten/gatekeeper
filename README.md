@@ -28,7 +28,7 @@ It costs about **$0.01 per call** on Twilio. Everything else runs free on Google
 | 📅 | **Weekly summary** | Sunday 8 PM email: openings, failures, night openings, peak hour, busiest day. |
 | 🗓️ | **Schedules** *(v1.1)* | Block auto-opening on chosen days and hours, including overnight ranges like 22:00 → 06:00. |
 | 🎛️ | **Pause actions** *(v1.1)* | When paused, choose what calls do: **reject**, **forward to your phone** (and if you don't answer, hang up or open anyway), **play a message**, or **open anyway with an urgent alert**. |
-| 📱 | **Admin panel** *(v1.1)* | Mobile web app opened with your **private link**, no Google sign-in needed. Modes: Automatic / Always open / Paused. Edit schedules, forwarding and alerts, and see recent calls. |
+| 📱 | **Admin panel** *(v1.1, hosted in v1.2)* | Mobile web app on GitHub Pages, opened with your **private link**. No Google sign-in needed. Modes: Automatic / Always open / Paused. Edit schedules, forwarding and alerts, and see recent calls. |
 | 🌐 | **English / Spanish** *(v1.1)* | Set `LANG = 'en'` or `'es'`. |
 | 🛟 | **Fail-safe** | If Google is unreachable, Twilio falls back to a static TwiML Bin, so the gate keeps opening. |
 
@@ -116,6 +116,7 @@ In Twilio Console → **TwiML Bins** → *Create*, paste [`twilio/gate-auto-answ
    | `CALL_BOX` | `+15550100123` | The number your call box calls from, in E.164 format. |
    | `OPEN_DIGIT` | `9` | The digit your gate expects. |
    | `LANG` | `en` | `en` or `es`, for emails, the panel and spoken messages. |
+   | `PANEL_HOST` | `https://javiten.github.io/gatekeeper/panel/` | Where the admin panel page is hosted. The default works for everyone. |
    | `TZ` | `America/New_York` | Your time zone. |
 
 4. Select the `setup` function and click **Run**. Approve the permissions. Google will warn that the app is unverified; that's expected for your own script (*Advanced → Go to project*).
@@ -128,8 +129,13 @@ In Twilio Console → **TwiML Bins** → *Create*, paste [`twilio/gate-auto-answ
 
 Copy the `/exec` URL, paste it into `WEB_URL` in the config, save, then **Deploy → Manage deployments → Edit → New version**. The URL stays the same.
 
-### 3b. Open the admin panel *(v1.1)*
-Run `setup()` again and copy the **private panel link** from the log (`…/exec?p=…`). It opens on any phone with no Google sign-in. Add it to your home screen, and **don't share it**: anyone with the link can control the gate. You can create a new link from the panel at any time, which disables the old one. The ⚙️ button in every email uses the same link.
+### 3b. Open the admin panel
+Run `setup()` again and copy the **private panel link** from the log. It looks like `https://javiten.github.io/gatekeeper/panel/#api=…&k=…`.
+
+- The panel is a static page hosted on **GitHub Pages** ([`docs/panel`](docs/panel/index.html)). It talks to *your* Apps Script through a small JSON API, so it works on any phone with no Google sign-in. This avoids the "Sorry, unable to open the file" error that `script.google.com` shows on phones signed in to several Google accounts.
+- Your API URL and key go after the `#`, which browsers **never send to GitHub**. The page saves them on your device so the home-screen icon keeps working.
+- Add it to your home screen and **don't share it**: anyone with the link can control the gate. You can create a new link from the panel, which disables the old one.
+- Prefer to self-host? Copy `docs/panel/index.html` anywhere and set `PANEL_HOST` in the config.
 
 > When you change the code later, update **both** deployments to the new version (Manage deployments → Edit → Version).
 
