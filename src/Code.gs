@@ -299,7 +299,7 @@ function sayBoth_(es, en) {
 const DIGIT_HINTS = 'cero,uno,dos,tres,cuatro,cinco,seis,siete,ocho,nueve,zero,one,two,three,four,five,six,seven,eight,nine,llamar,call';
 function gather_(step, n, prompt) {
   const url = xml_(WEB_URL + '?k=' + TOKEN + '&type=pin&step=' + step + '&n=' + n);
-  return '<Response><Gather input="speech" speechModel="deepgram_nova-3" language="multi" bargeIn="false" speechTimeout="2" timeout="8" ' +
+  return '<Response><Gather input="speech" speechModel="deepgram_nova-3" language="multi" bargeIn="false" speechTimeout="' + (step === 'pin' ? 1 : 2) + '" timeout="8" ' +
          (step === 'pin' ? 'hints="' + DIGIT_HINTS + '" ' : '') +
          'actionOnEmptyResult="true" action="' + url + '" method="POST">' + prompt + '</Gather><Redirect method="POST">' + url + '</Redirect></Response>';
 }
@@ -329,7 +329,7 @@ function pinStep_(p) {
   if (guest) {
     rec.o = 'opened_pin'; rec.guest = guest.name; rec.pinId = guest.id;
     putRec_(p.CallSid, rec); bumpPinStats_(guest.id);
-    return xmlOut_(openTwiml_());
+    return xmlOut_(openTwiml_(true));                         // call already connected: send the digit right away
   }
   if (n < o.attempts) {
     return xmlOut_(gather_('pin', n + 1, sayBoth_('Código incorrecto. Repita su código.', 'Wrong code. Say it again.')));
@@ -400,8 +400,8 @@ function dialEnded_(p) {
   return xmlOut_('<Response><Hangup/></Response>');
 }
 
-function openTwiml_() {
-  return '<Response><Pause length="1"/><Play digits="' + OPEN_DIGIT + '"/><Pause length="1"/><Hangup/></Response>';
+function openTwiml_(now) {
+  return '<Response>' + (now ? '' : '<Pause length="1"/>') + '<Play digits="' + OPEN_DIGIT + '"/><Pause length="1"/><Hangup/></Response>';
 }
 
 // ---------------------------------------------------------------------
