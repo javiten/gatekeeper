@@ -46,6 +46,8 @@ const I18N = {
       act_pin: 'Ask for name + access code', pins: 'Access codes (PIN)', pinsHint: 'Guests say their name and then their code out loud, in English or Spanish. A correct code opens the gate and the email tells you who came in.',
       pinDays: 'Days', pinHours: 'Hours', always: 'Always', expires: 'Expires', never: 'Never (unlimited)', maxUses: 'Max uses', unlimited: 'Unlimited', once: 'Single use',
       usesLeft: '{n} left', expired: 'Expired', err_pintime: 'Check the guest hours (both times, or leave both empty for always).',
+      ph_guest: 'e.g. Mom', ph_pin: '4821', ph_rule: 'e.g. Night', ph_time1: 'e.g. 09:00', ph_time2: 'e.g. 18:00', ph_date: 'e.g. 12/31/2026',
+      ph_phone: 'e.g. +13055551234', ph_msg: 'e.g. No one can open right now, please call me.', validity: 'Validity',
       addPin: 'Add guest', pinName: 'Guest name', pinCode: 'Code', validFrom: 'Valid from', validTo: 'Valid until', anyDate: 'any date',
       uses: 'Used {n}×', lastUse: 'last', neverUsed: 'Never used', pinLen: 'Code length', digits: 'digits', attempts: 'Attempts', callOwner: 'Guests without a code can say "call" to be forwarded to my phone',
       pinFailAct: 'After the last wrong attempt', outside: 'Outside schedules', out_open: 'Open right away', out_pin: 'Ask for name + code', lockNote: 'Code entry is locked until {t} because of repeated wrong codes.',
@@ -94,6 +96,8 @@ const I18N = {
       act_pin: 'Pedir nombre + código', pins: 'Códigos de acceso (PIN)', pinsHint: 'El invitado dice su nombre y después su código en voz alta, en español o inglés. Si el código es correcto se abre el gate y el email te dice quién entró.',
       pinDays: 'Días', pinHours: 'Horario', always: 'Siempre', expires: 'Vence', never: 'Nunca (ilimitado)', maxUses: 'Usos máximos', unlimited: 'Ilimitados', once: 'Un solo uso',
       usesLeft: 'quedan {n}', expired: 'Vencido', err_pintime: 'Revisá el horario del invitado (las dos horas, o dejá ambas vacías para siempre).',
+      ph_guest: 'ej. Mamá', ph_pin: '4821', ph_rule: 'ej. Noche', ph_time1: 'ej. 09:00', ph_time2: 'ej. 18:00', ph_date: 'ej. 31/12/2026',
+      ph_phone: 'ej. +13055551234', ph_msg: 'ej. En este momento no podemos abrir, por favor llamame.', validity: 'Vigencia',
       addPin: 'Agregar invitado', pinName: 'Nombre del invitado', pinCode: 'Código', validFrom: 'Válido desde', validTo: 'Válido hasta', anyDate: 'cualquier fecha',
       uses: 'Usado {n} veces', lastUse: 'último', neverUsed: 'Sin usar todavía', pinLen: 'Largo del código', digits: 'dígitos', attempts: 'Intentos', callOwner: 'Quien no tenga código puede decir "llamar" y se desvía a mi celular',
       pinFailAct: 'Después del último intento fallido', outside: 'Fuera de los horarios', out_open: 'Abrir directo', out_pin: 'Pedir nombre + código', lockNote: 'Los códigos están bloqueados hasta las {t} por intentos fallidos repetidos.',
@@ -747,7 +751,10 @@ textarea{min-height:70px;resize:vertical}
 .x{border:0;background:#fee2e2;color:#b91c1c;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer}
 .days{display:flex;gap:6px;margin-top:12px}.days button{flex:1;aspect-ratio:1;max-width:44px;border-radius:50%;border:0;background:#f1f5f9;font-weight:700;color:var(--slate);cursor:pointer}
 .days button.on{background:var(--violet);color:#fff}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.two>*{min-width:0}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:46px;text-align:left}
+input::-webkit-date-and-time-value{text-align:left}input::placeholder,textarea::placeholder{color:#94a3b8;opacity:1}input[data-gk=pin]::placeholder{color:#cbd5e1}
+input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-calendar-picker-indicator{opacity:.5}
 .sw{position:relative;width:50px;height:30px;flex:none}.sw input{display:none}.sw span{position:absolute;inset:0;background:#cbd5e1;border-radius:99px;transition:.2s;cursor:pointer}
 .sw span:after{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
 .sw input:checked+span{background:var(--green)}.sw input:checked+span:after{left:23px}
@@ -786,6 +793,7 @@ var ICON={opened_pin:'🔑',opened:'🔓',opened_alert:'🚨',failed:'❌',rejec
 function h(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function opts(list,sel,lab){return list.map(function(v){return '<option value="'+v+'"'+(v==sel?' selected':'')+'>'+h(lab(v))+'</option>'}).join('')}
 function hours(sel){var o='';for(var i=0;i<=24;i++){o+='<option value="'+i+'"'+(i==sel?' selected':'')+'>'+((i%12)||12)+(i<12||i==24?' AM':' PM')+'</option>'}return o}
+function dt(type,attrs,val,ph){return '<input '+attrs+' data-dt="'+type+'" type="'+(val?type:'text')+'" value="'+h(val||'')+'" placeholder="'+h(ph)+'" inputmode="none">'}
 function mark(){dirty=true;var b=document.getElementById('save');b.classList.add('dirty');b.textContent=T.save}
 function render(){
   var st=D.state, m=S.mode, html='';
@@ -801,17 +809,19 @@ function render(){
     (D.pinLock?'<div class="err" style="display:block">🔒 '+h(T.lockNote.replace('{t}',D.pinLock))+'</div>':'');
   S.pins.forEach(function(g,i){var u=st[g.id];
     html+='<div class="rule'+(g.enabled?'':' off')+'" data-g="'+i+'"><div class="rh"><label class="sw"><input type="checkbox" data-gk="enabled"'+(g.enabled?' checked':'')+'><span></span></label>'+
-      '<input type="text" data-gk="name" value="'+h(g.name)+'" maxlength="40" placeholder="'+h(T.pinName)+'"><button class="x" data-gdel="'+i+'">✕</button></div>'+
-      '<div class="two"><div><label class="f">'+T.pinCode+'</label><div style="display:flex;gap:6px"><input type="text" inputmode="numeric" data-gk="pin" value="'+h(g.pin)+'" maxlength="'+po.length+'" style="font:700 20px ui-monospace,monospace;letter-spacing:4px"><button class="x" style="background:#ede9fe;color:#6d28d9" data-grnd="'+i+'">🎲</button></div></div>'+
+      '<input type="text" data-gk="name" value="'+h(g.name)+'" maxlength="40" placeholder="'+h(T.ph_guest)+'"><button class="x" data-gdel="'+i+'">✕</button></div>'+
+      '<div class="two"><div><label class="f">'+T.pinCode+'</label><div style="display:flex;gap:6px"><input type="text" inputmode="numeric" data-gk="pin" value="'+h(g.pin)+'" maxlength="'+po.length+'" placeholder="'+h(T.ph_pin)+'" style="font:700 20px ui-monospace,monospace;letter-spacing:4px;min-width:0"><button class="x" style="background:#ede9fe;color:#6d28d9" data-grnd="'+i+'">🎲</button></div></div>'+
       '<div><label class="f">&nbsp;</label><div class="hint" style="margin-top:12px">'+(u?h(T.uses.replace('{n}',u.uses))+' · '+T.lastUse+' '+h(u.last):T.neverUsed)+'</div></div></div>'+
       '<label class="f">'+T.pinDays+'</label><div class="days" style="margin-top:0">'+B.days.map(function(d,j){return '<button data-gday="'+j+'" class="'+((g.days||[0,1,2,3,4,5,6]).indexOf(j)>=0?'on':'')+'">'+d+'</button>'}).join('')+'</div>'+
       '<label class="f">'+T.pinHours+'</label>'+
-      '<div class="two"><input type="time" data-gk="tFrom" value="'+h(g.tFrom||'')+'"><input type="time" data-gk="tTo" value="'+h(g.tTo||'')+'"></div>'+
+      '<div class="two">'+dt('time','data-gk="tFrom"',g.tFrom,T.ph_time1)+dt('time','data-gk="tTo"',g.tTo,T.ph_time2)+'</div>'+
       '<div class="hint">'+((g.tFrom&&g.tTo)?'':'⏰ '+T.always)+'</div>'+
-      '<div class="two"><div><label class="f">'+T.expires+'</label><input type="date" data-gk="to" value="'+h(g.to)+'"><div class="hint">'+(g.to?'':'♾️ '+T.never)+'</div></div>'+
-      '<div><label class="f">'+T.maxUses+'</label><select data-gk="maxUses">'+opts([0,1,2,3,5,10,20,50],g.maxUses||0,function(v){return v==0?T.unlimited:(v==1?T.once:v)})+'</select>'+
-      (g.maxUses>0&&u?'<div class="hint">'+h(T.usesLeft.replace('{n}',Math.max(0,g.maxUses-u.uses)))+'</div>':'')+'</div></div>'+
-      '<label class="f">'+T.validFrom+'</label><input type="date" data-gk="from" value="'+h(g.from)+'"></div>';
+      '<label class="f">'+T.validity+'</label>'+
+      '<div class="two"><div><label class="f" style="margin-top:0">'+T.validFrom+'</label>'+dt('date','data-gk="from"',g.from,T.ph_date)+'</div>'+
+      '<div><label class="f" style="margin-top:0">'+T.expires+'</label>'+dt('date','data-gk="to"',g.to,T.ph_date)+'</div></div>'+
+      '<div class="hint">'+(g.to?'':'♾️ '+T.never)+'</div>'+
+      '<label class="f">'+T.maxUses+'</label><select data-gk="maxUses">'+opts([0,1,2,3,5,10,20,50],g.maxUses||0,function(v){return v==0?T.unlimited:(v==1?T.once:v)})+'</select>'+
+      (g.maxUses>0&&u?'<div class="hint">'+h(T.usesLeft.replace('{n}',Math.max(0,g.maxUses-u.uses)))+'</div>':'')+'</div>';
   });
   html+='<button class="add" id="addg">＋ '+T.addPin+'</button>'+
     '<div class="two"><div><label class="f">'+T.pinLen+'</label><select id="pl">'+opts([4,5,6,7,8],po.length,function(v){return v+' '+T.digits})+'</select></div>'+
@@ -821,16 +831,16 @@ function render(){
   html+='<div class="card"><h2>'+T.schedules+'</h2><div class="hint" style="margin:-4px 0 12px">'+T.sched_hint+'</div>';
   S.rules.forEach(function(r,i){
     html+='<div class="rule'+(r.enabled?'':' off')+'" data-i="'+i+'"><div class="rh"><label class="sw"><input type="checkbox" data-k="enabled"'+(r.enabled?' checked':'')+'><span></span></label>'+
-      '<input type="text" data-k="name" value="'+h(r.name)+'" maxlength="40"><button class="x" data-del="'+i+'">✕</button></div>'+
+      '<input type="text" data-k="name" value="'+h(r.name)+'" maxlength="40" placeholder="'+h(T.ph_rule)+'"><button class="x" data-del="'+i+'">✕</button></div>'+
       '<div class="days">'+B.days.map(function(d,j){return '<button data-day="'+j+'" class="'+(r.days.indexOf(j)>=0?'on':'')+'">'+d+'</button>'}).join('')+'</div>'+
-      '<div class="two"><div><label class="f">'+T.from+'</label><input type="time" data-k="from" value="'+r.from+'"></div><div><label class="f">'+T.to+'</label><input type="time" data-k="to" value="'+r.to+'"></div></div>'+
+      '<div class="two"><div><label class="f">'+T.from+'</label>'+dt('time','data-k="from"',r.from,T.ph_time1)+'</div><div><label class="f">'+T.to+'</label>'+dt('time','data-k="to"',r.to,T.ph_time2)+'</div></div>'+
       '<label class="f">'+T.action+'</label><select data-k="action">'+opts(ACT,r.action,function(a){return T['act_'+a]})+'</select></div>';
   });
   html+='<button class="add" id="add">＋ '+T.addRule+'</button></div>';
-  html+='<div class="card"><h2>'+T.fwd+'</h2><label class="f">'+T.fwdNumber+'</label><input type="tel" id="fn" placeholder="+1XXXXXXXXXX" value="'+h(S.forward.number)+'">'+
+  html+='<div class="card"><h2>'+T.fwd+'</h2><label class="f">'+T.fwdNumber+'</label><input type="tel" id="fn" placeholder="'+h(T.ph_phone)+'" value="'+h(S.forward.number)+'">'+
     '<div class="two"><div><label class="f">'+T.fwdTimeout+'</label><select id="ft">'+opts([15,20,25,30,45,60],S.forward.timeout,function(v){return v+' '+T.seconds})+'</select></div>'+
     '<div><label class="f">'+T.fwdFallback+'</label><select id="fb">'+opts(['hangup','open'],S.forward.fallback,function(v){return T['fb_'+v]})+'</select></div></div></div>';
-  html+='<div class="card"><h2>'+T.msg+'</h2><textarea id="msg" maxlength="300">'+h(S.message)+'</textarea><div class="hint">'+T.msgHint+'</div></div>';
+  html+='<div class="card"><h2>'+T.msg+'</h2><textarea id="msg" maxlength="300" placeholder="'+h(T.ph_msg)+'">'+h(S.message)+'</textarea><div class="hint">'+T.msgHint+'</div></div>';
   html+='<div class="card"><h2>'+T.alerts+'</h2><label class="f">'+T.nightWin+'</label><div class="two"><select id="nf">'+hours(S.night.from)+'</select><select id="nt">'+hours(S.night.to)+'</select></div>'+
     '<div class="row"><span>'+T.summaryOn+'</span><label class="sw"><input type="checkbox" id="sum"'+(S.summary?' checked':'')+'><span></span></label></div></div>';
   html+='<div class="card calls"><h2>'+T.recent+'</h2>'+(D.recent.length?D.recent.map(function(c){return '<div class="c"><div class="dot">'+(ICON[c.code]||'📞')+'</div><div class="m"><div class="r">'+h(c.result)+'</div><div class="w">'+h(c.day)+' · '+h(c.time)+'</div></div></div>'}).join(''):'<div class="hint">'+T.noCalls+'</div>')+
@@ -842,6 +852,10 @@ function render(){
 }
 function bind(){
   var app=document.getElementById('app');
+  app.querySelectorAll('[data-dt]').forEach(function(i){
+    i.addEventListener('focus',function(){if(i.type!==i.dataset.dt){i.type=i.dataset.dt;i.removeAttribute('inputmode');try{i.showPicker&&i.showPicker()}catch(e){}}});
+    i.addEventListener('blur',function(){if(!i.value){i.type='text';i.setAttribute('inputmode','none')}});
+  });
   app.querySelectorAll('[data-mode]').forEach(function(b){b.onclick=function(){S.mode=b.dataset.mode;render();save()}});
   var pa=document.getElementById('pa'); if(pa) pa.onchange=function(){S.pausedAction=pa.value;mark()};
   var os=document.getElementById('os'); if(os) os.onchange=function(){S.outside=os.value;mark()};
