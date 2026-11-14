@@ -46,6 +46,7 @@ const I18N = {
       act_pin: 'Ask for name + access code', pins: 'Access codes (PIN)', pinsHint: 'Guests say their name and then their code out loud, in English or Spanish. A correct code opens the gate and the email tells you who came in.',
       pinDays: 'Days', pinHours: 'Hours', always: 'Always', expires: 'Expires', never: 'Never (unlimited)', maxUses: 'Max uses', unlimited: 'Unlimited', once: 'Single use',
       usesLeft: '{n} left', expired: 'Expired', err_pintime: 'Check the guest hours (both times, or leave both empty for always).',
+      pinOff: 'Codes are saved but not requested yet. Turn them on in Mode → Outside schedules → "Ask for name + code" (or use that action in a schedule).', pinOffBtn: 'Turn codes on',
       ph_guest: 'e.g. Mom', ph_pin: '4821', ph_rule: 'e.g. Night', ph_time1: 'e.g. 09:00', ph_time2: 'e.g. 18:00', ph_date: 'e.g. 12/31/2026',
       ph_phone: 'e.g. +13055551234', ph_msg: 'e.g. No one can open right now, please call me.', validity: 'Validity',
       addPin: 'Add guest', pinName: 'Guest name', pinCode: 'Code', validFrom: 'Valid from', validTo: 'Valid until', anyDate: 'any date',
@@ -96,6 +97,7 @@ const I18N = {
       act_pin: 'Pedir nombre + código', pins: 'Códigos de acceso (PIN)', pinsHint: 'El invitado dice su nombre y después su código en voz alta, en español o inglés. Si el código es correcto se abre el gate y el email te dice quién entró.',
       pinDays: 'Días', pinHours: 'Horario', always: 'Siempre', expires: 'Vence', never: 'Nunca (ilimitado)', maxUses: 'Usos máximos', unlimited: 'Ilimitados', once: 'Un solo uso',
       usesLeft: 'quedan {n}', expired: 'Vencido', err_pintime: 'Revisá el horario del invitado (las dos horas, o dejá ambas vacías para siempre).',
+      pinOff: 'Los códigos están guardados pero todavía no se piden. Activalos en Modo → Fuera de los horarios → "Pedir nombre + código" (o usá esa acción en un horario).', pinOffBtn: 'Activar códigos',
       ph_guest: 'ej. Mamá', ph_pin: '4821', ph_rule: 'ej. Noche', ph_time1: 'ej. 09:00', ph_time2: 'ej. 18:00', ph_date: 'ej. 31/12/2026',
       ph_phone: 'ej. +13055551234', ph_msg: 'ej. En este momento no podemos abrir, por favor llamame.', validity: 'Vigencia',
       addPin: 'Agregar invitado', pinName: 'Nombre del invitado', pinCode: 'Código', validFrom: 'Válido desde', validTo: 'Válido hasta', anyDate: 'cualquier fecha',
@@ -806,7 +808,10 @@ function render(){
     (m=='auto'?'<label class="f">'+T.outside+'</label><select id="os">'+opts(['open','pin'],S.outside,function(v){return T['out_'+v]})+'</select>':'')+'</div>';
   var po=S.pinOpts, st=D.pinStats||{};
   html+='<div class="card"><h2>🔑 '+T.pins+'</h2><div class="hint" style="margin:-4px 0 12px">'+T.pinsHint+'</div>'+
-    (D.pinLock?'<div class="err" style="display:block">🔒 '+h(T.lockNote.replace('{t}',D.pinLock))+'</div>':'');
+    (D.pinLock?'<div class="err" style="display:block">🔒 '+h(T.lockNote.replace('{t}',D.pinLock))+'</div>':'')+
+    ((S.pins.length&&S.outside!='pin'&&S.pausedAction!='pin'&&!S.rules.some(function(r){return r.enabled&&r.action=='pin'}))?
+      '<div style="background:#fef3c7;color:#92400e;border-radius:14px;padding:12px;margin-bottom:12px;font-size:14px">⚠️ '+h(T.pinOff)+
+      (S.mode=='auto'?'<br><button class="add" id="pinon" style="margin-top:10px;border-style:solid;color:#92400e;background:#fff">🔑 '+h(T.pinOffBtn)+'</button>':'')+'</div>':'');
   S.pins.forEach(function(g,i){var u=st[g.id];
     html+='<div class="rule'+(g.enabled?'':' off')+'" data-g="'+i+'"><div class="rh"><label class="sw"><input type="checkbox" data-gk="enabled"'+(g.enabled?' checked':'')+'><span></span></label>'+
       '<input type="text" data-gk="name" value="'+h(g.name)+'" maxlength="40" placeholder="'+h(T.ph_guest)+'"><button class="x" data-gdel="'+i+'">✕</button></div>'+
@@ -859,6 +864,7 @@ function bind(){
   app.querySelectorAll('[data-mode]').forEach(function(b){b.onclick=function(){S.mode=b.dataset.mode;render();save()}});
   var pa=document.getElementById('pa'); if(pa) pa.onchange=function(){S.pausedAction=pa.value;mark()};
   var os=document.getElementById('os'); if(os) os.onchange=function(){S.outside=os.value;mark()};
+  var pon=document.getElementById('pinon'); if(pon) pon.onclick=function(){S.outside='pin';render();save()};
   function rnd(){var n=S.pinOpts.length,x='';for(var k=0;k<n;k++)x+=Math.floor(Math.random()*10);return x}
   app.querySelectorAll('[data-g]').forEach(function(el){var g=S.pins[+el.dataset.g];
     el.querySelectorAll('[data-gk]').forEach(function(inp){inp.oninput=inp.onchange=function(){var k=inp.dataset.gk;g[k]=inp.type=='checkbox'?inp.checked:(k=='pin'?inp.value.replace(/\D/g,''):inp.value);if(k=='pin')inp.value=g.pin;if(inp.type=='checkbox')el.classList.toggle('off',!inp.checked);mark()}});
