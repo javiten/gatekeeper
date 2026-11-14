@@ -14,7 +14,7 @@
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.seg button{border:0;border-radius:16px;padding:12px 6px;background:#f1f5f9;font:inherit;font-weight:700;color:var(--slate);cursor:pointer}
 .seg button .e{display:block;font-size:24px;margin-bottom:4px}.seg button.on{background:var(--ink);color:#fff}
 .hint{color:var(--mute);font-size:13px;margin-top:10px}
-label.f{display:block;font-size:13px;color:var(--mute);margin:12px 0 6px}select,input[type=text],input[type=tel],input[type=time],textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit;background:#fff;color:var(--ink)}
+label.f{display:block;font-size:13px;color:var(--mute);margin:12px 0 6px}select,input[type=text],input[type=tel],input[type=time],input[type=date],textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit;background:#fff;color:var(--ink)}
 textarea{min-height:70px;resize:vertical}
 .rule{border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px}.rule.off{opacity:.55}
 .rh{display:flex;gap:10px;align-items:center}.rh input{flex:1;font-weight:700}
@@ -55,8 +55,8 @@ function boot(){
   call('data',null,function(j){start({data:j,key:KEY,link:j.link,T:j.T,days:j.days,version:j.version})},
     function(e){app.innerHTML='<div class="card hero k-paused"><div class="ring">⚠️</div><div class="t">Gatekeeper</div><div class="s">'+h(e.message)+'</div></div>'});
 }
-var ACT=['reject','forward','message','open_alert'];
-var ICON={opened:'🔓',opened_alert:'🚨',failed:'❌',rejected:'⛔',message:'🔇',fwd_answered:'📲',fwd_missed:'📵',fwd_opened:'🔓'};
+var ACT=['reject','forward','message','open_alert','pin'],FAILACT=['reject','forward','message'];
+var ICON={opened_pin:'🔑',opened:'🔓',opened_alert:'🚨',failed:'❌',rejected:'⛔',message:'🔇',fwd_answered:'📲',fwd_missed:'📵',fwd_opened:'🔓'};
 function h(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function opts(list,sel,lab){return list.map(function(v){return '<option value="'+v+'"'+(v==sel?' selected':'')+'>'+h(lab(v))+'</option>'}).join('')}
 function hours(sel){var o='';for(var i=0;i<=24;i++){o+='<option value="'+i+'"'+(i==sel?' selected':'')+'>'+((i%12)||12)+(i<12||i==24?' AM':' PM')+'</option>'}return o}
@@ -68,7 +68,30 @@ function render(){
   html+='<div class="card"><h2>'+T.p_mode+'</h2><div class="seg">'+
     [['auto','🤖',T.m_auto],['open','🔓',T.m_open],['paused','⏸️',T.m_paused]].map(function(x){return '<button data-mode="'+x[0]+'" class="'+(m==x[0]?'on':'')+'"><span class="e">'+x[1]+'</span>'+x[2]+'</button>'}).join('')+
     '</div><div class="hint">'+T['m_'+m+'_d']+'</div>'+
-    (m=='paused'?'<label class="f">'+T.pausedAction+'</label><select id="pa">'+opts(ACT,S.pausedAction,function(a){return T['act_'+a]})+'</select>':'')+'</div>';
+    (m=='paused'?'<label class="f">'+T.pausedAction+'</label><select id="pa">'+opts(ACT,S.pausedAction,function(a){return T['act_'+a]})+'</select>':'')+
+    (m=='auto'?'<label class="f">'+T.outside+'</label><select id="os">'+opts(['open','pin'],S.outside,function(v){return T['out_'+v]})+'</select>':'')+'</div>';
+  var po=S.pinOpts, st=D.pinStats||{};
+  html+='<div class="card"><h2>🔑 '+T.pins+'</h2><div class="hint" style="margin:-4px 0 12px">'+T.pinsHint+'</div>'+
+    (D.pinLock?'<div class="err" style="display:block">🔒 '+h(T.lockNote.replace('{t}',D.pinLock))+'</div>':'');
+  S.pins.forEach(function(g,i){var u=st[g.id];
+    html+='<div class="rule'+(g.enabled?'':' off')+'" data-g="'+i+'"><div class="rh"><label class="sw"><input type="checkbox" data-gk="enabled"'+(g.enabled?' checked':'')+'><span></span></label>'+
+      '<input type="text" data-gk="name" value="'+h(g.name)+'" maxlength="40" placeholder="'+h(T.pinName)+'"><button class="x" data-gdel="'+i+'">✕</button></div>'+
+      '<div class="two"><div><label class="f">'+T.pinCode+'</label><div style="display:flex;gap:6px"><input type="text" inputmode="numeric" data-gk="pin" value="'+h(g.pin)+'" maxlength="'+po.length+'" style="font:700 20px ui-monospace,monospace;letter-spacing:4px"><button class="x" style="background:#ede9fe;color:#6d28d9" data-grnd="'+i+'">🎲</button></div></div>'+
+      '<div><label class="f">&nbsp;</label><div class="hint" style="margin-top:12px">'+(u?h(T.uses.replace('{n}',u.uses))+' · '+T.lastUse+' '+h(u.last):T.neverUsed)+'</div></div></div>'+
+      '<label class="f">'+T.pinDays+'</label><div class="days" style="margin-top:0">'+B.days.map(function(d,j){return '<button data-gday="'+j+'" class="'+((g.days||[0,1,2,3,4,5,6]).indexOf(j)>=0?'on':'')+'">'+d+'</button>'}).join('')+'</div>'+
+      '<label class="f">'+T.pinHours+'</label>'+
+      '<div class="two"><input type="time" data-gk="tFrom" value="'+h(g.tFrom||'')+'"><input type="time" data-gk="tTo" value="'+h(g.tTo||'')+'"></div>'+
+      '<div class="hint">'+((g.tFrom&&g.tTo)?'':'⏰ '+T.always)+'</div>'+
+      '<div class="two"><div><label class="f">'+T.expires+'</label><input type="date" data-gk="to" value="'+h(g.to)+'"><div class="hint">'+(g.to?'':'♾️ '+T.never)+'</div></div>'+
+      '<div><label class="f">'+T.maxUses+'</label><select data-gk="maxUses">'+opts([0,1,2,3,5,10,20,50],g.maxUses||0,function(v){return v==0?T.unlimited:(v==1?T.once:v)})+'</select>'+
+      (g.maxUses>0&&u?'<div class="hint">'+h(T.usesLeft.replace('{n}',Math.max(0,g.maxUses-u.uses)))+'</div>':'')+'</div></div>'+
+      '<label class="f">'+T.validFrom+'</label><input type="date" data-gk="from" value="'+h(g.from)+'"></div>';
+  });
+  html+='<button class="add" id="addg">＋ '+T.addPin+'</button>'+
+    '<div class="two"><div><label class="f">'+T.pinLen+'</label><select id="pl">'+opts([4,5,6,7,8],po.length,function(v){return v+' '+T.digits})+'</select></div>'+
+    '<div><label class="f">'+T.attempts+'</label><select id="pt">'+opts([1,2,3,4,5],po.attempts,function(v){return v})+'</select></div></div>'+
+    '<label class="f">'+T.pinFailAct+'</label><select id="pf">'+opts(FAILACT,po.fail,function(a){return T['act_'+a]})+'</select>'+
+    '<div class="row"><span>'+T.callOwner+'</span><label class="sw"><input type="checkbox" id="pco"'+(po.callOwner?' checked':'')+'><span></span></label></div></div>';
   html+='<div class="card"><h2>'+T.schedules+'</h2><div class="hint" style="margin:-4px 0 12px">'+T.sched_hint+'</div>';
   S.rules.forEach(function(r,i){
     html+='<div class="rule'+(r.enabled?'':' off')+'" data-i="'+i+'"><div class="rh"><label class="sw"><input type="checkbox" data-k="enabled"'+(r.enabled?' checked':'')+'><span></span></label>'+
@@ -95,6 +118,18 @@ function bind(){
   var app=document.getElementById('app');
   app.querySelectorAll('[data-mode]').forEach(function(b){b.onclick=function(){S.mode=b.dataset.mode;render();save()}});
   var pa=document.getElementById('pa'); if(pa) pa.onchange=function(){S.pausedAction=pa.value;mark()};
+  var os=document.getElementById('os'); if(os) os.onchange=function(){S.outside=os.value;mark()};
+  function rnd(){var n=S.pinOpts.length,x='';for(var k=0;k<n;k++)x+=Math.floor(Math.random()*10);return x}
+  app.querySelectorAll('[data-g]').forEach(function(el){var g=S.pins[+el.dataset.g];
+    el.querySelectorAll('[data-gk]').forEach(function(inp){inp.oninput=inp.onchange=function(){var k=inp.dataset.gk;g[k]=inp.type=='checkbox'?inp.checked:(k=='pin'?inp.value.replace(/D/g,''):inp.value);if(k=='pin')inp.value=g.pin;if(inp.type=='checkbox')el.classList.toggle('off',!inp.checked);mark()}});
+    var rb=el.querySelector('[data-grnd]');rb.onclick=function(){g.pin=rnd();el.querySelector('[data-gk=pin]').value=g.pin;mark()};
+    el.querySelectorAll('[data-gday]').forEach(function(b){b.onclick=function(){g.days=g.days||[0,1,2,3,4,5,6];var d=+b.dataset.gday,k=g.days.indexOf(d);if(k>=0)g.days.splice(k,1);else g.days.push(d);b.classList.toggle('on');mark()}});
+    var mu=el.querySelector('[data-gk=maxUses]');mu.onchange=function(){g.maxUses=+mu.value;mark()};
+  });
+  app.querySelectorAll('[data-gdel]').forEach(function(b){b.onclick=function(){S.pins.splice(+b.dataset.gdel,1);render();mark()}});
+  document.getElementById('addg').onclick=function(){S.pins.push({id:'g'+Date.now(),name:'',pin:rnd(),enabled:true,from:'',to:'',days:[0,1,2,3,4,5,6],tFrom:'',tTo:'',maxUses:0});render();mark()};
+  [['pl',function(v){S.pinOpts.length=+v}],['pt',function(v){S.pinOpts.attempts=+v}],['pf',function(v){S.pinOpts.fail=v}]].forEach(function(x){var e=document.getElementById(x[0]);e.onchange=function(){x[1](e.value);mark();if(x[0]=='pl')render()}});
+  document.getElementById('pco').onchange=function(e){S.pinOpts.callOwner=e.target.checked;mark()};
   app.querySelectorAll('.rule').forEach(function(el){
     var r=S.rules[+el.dataset.i];
     el.querySelectorAll('[data-k]').forEach(function(inp){inp.oninput=inp.onchange=function(){r[inp.dataset.k]=inp.type=='checkbox'?inp.checked:inp.value;if(inp.type=='checkbox')el.classList.toggle('off',!inp.checked);mark()}});

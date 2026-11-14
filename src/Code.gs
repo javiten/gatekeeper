@@ -22,9 +22,10 @@ const WEB_URL     = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 const PANEL_HOST  = 'https://javiten.github.io/gatekeeper/panel/';   // static admin panel (or host docs/panel yourself)
 // </CONFIG> -----------------------------------------------------------
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const PROPS   = PropertiesService.getScriptProperties();
-const ACTIONS = ['reject', 'forward', 'message', 'open_alert'];
+const ACTIONS = ['reject', 'forward', 'message', 'open_alert', 'pin'];
+const FAIL_ACTIONS = ['reject', 'forward', 'message'];
 
 // ---------------------------------------------------------------------
 //  TEXTS (es / en)
@@ -41,13 +42,22 @@ const I18N = {
       opened: 'Gate opened', night: 'Night opening', unknown: 'Call from another number', failed: 'Gate did NOT open',
       rejected: 'Call rejected', message: 'Message played', fwd_answered: 'Forwarded · you answered',
       fwd_missed: 'Forwarded · missed', fwd_opened: 'Forwarded · opened anyway', opened_alert: 'Opened during restricted hours',
+      opened_pin: '{n} came in', guest: 'Guest', saidName: 'Said their name is', pinFail: 'Wrong code ({n} attempts)', pinLocked: 'Code entry locked (too many wrong codes)',
+      act_pin: 'Ask for name + access code', pins: 'Access codes (PIN)', pinsHint: 'Guests say their name and then their code out loud, in English or Spanish. A correct code opens the gate and the email tells you who came in.',
+      pinDays: 'Days', pinHours: 'Hours', always: 'Always', expires: 'Expires', never: 'Never (unlimited)', maxUses: 'Max uses', unlimited: 'Unlimited', once: 'Single use',
+      usesLeft: '{n} left', expired: 'Expired', err_pintime: 'Check the guest hours (both times, or leave both empty for always).',
+      addPin: 'Add guest', pinName: 'Guest name', pinCode: 'Code', validFrom: 'Valid from', validTo: 'Valid until', anyDate: 'any date',
+      uses: 'Used {n}×', lastUse: 'last', neverUsed: 'Never used', pinLen: 'Code length', digits: 'digits', attempts: 'Attempts', callOwner: 'Guests without a code can say "call" to be forwarded to my phone',
+      pinFailAct: 'After the last wrong attempt', outside: 'Outside schedules', out_open: 'Open right away', out_pin: 'Ask for name + code', lockNote: 'Code entry is locked until {t} because of repeated wrong codes.',
+      err_pin: 'Each guest needs a code of exactly {n} digits.', err_pindup: 'Two guests have the same code.', sumByCode: 'Came in with a code',
+      subjectLock: 'Gatekeeper: code entry locked', lockMail: 'Too many wrong codes in the last hour. Code entry is locked for 60 minutes. Calls follow the "after the last wrong attempt" action.',
       caller: 'Caller', duration: 'Duration', openSignal: 'Open signal', sent: 'Sent', no: 'No', callBox: 'Call box',
       unknownNum: 'Unknown', callLog: 'Call log', callBack: 'Call back', history: 'History', panel: 'Panel',
       manualPause: 'Manual pause', schedule: 'Schedule', twilioStatus: 'Twilio status', yes: 'Yes',
       weekly: 'Weekly summary', openings: 'openings', sumOpened: 'Opened', sumFailed: 'Failed', sumBlocked: 'Blocked',
       sumForwarded: 'Forwarded', sumNight: 'Night', sumOther: 'Other numbers', peak: 'Peak hour', busiest: 'Busiest day',
       sumFooter: 'Sent every Sunday at 8 PM', subjectWeekly: 'Gatekeeper weekly summary',
-      cols: ['Date & time','Day','Time','From','Call box','Result','Duration (s)','Night','Twilio status','Call SID','Code','Reason'],
+      cols: ['Date & time','Day','Time','From','Call box','Result','Duration (s)','Night','Twilio status','Call SID','Code','Reason','Guest','Said name'],
       sheetName: 'Gatekeeper · Call history', tabName: 'Calls',
       act_reject: 'Reject the call', act_forward: 'Forward to my phone', act_message: 'Play a message and hang up', act_open_alert: 'Open anyway + urgent alert',
       // panel
@@ -80,13 +90,22 @@ const I18N = {
       opened: 'Gate abierto', night: 'Apertura nocturna', unknown: 'Llamada de otro número', failed: 'El gate NO se abrió',
       rejected: 'Llamada rechazada', message: 'Mensaje y corte', fwd_answered: 'Desviada · atendiste',
       fwd_missed: 'Desviada · no atendiste', fwd_opened: 'Desviada · se abrió igual', opened_alert: 'Abierto en horario restringido',
+      opened_pin: 'Entró {n}', guest: 'Invitado', saidName: 'Dijo llamarse', pinFail: 'Código incorrecto ({n} intentos)', pinLocked: 'Códigos bloqueados (demasiados intentos fallidos)',
+      act_pin: 'Pedir nombre + código', pins: 'Códigos de acceso (PIN)', pinsHint: 'El invitado dice su nombre y después su código en voz alta, en español o inglés. Si el código es correcto se abre el gate y el email te dice quién entró.',
+      pinDays: 'Días', pinHours: 'Horario', always: 'Siempre', expires: 'Vence', never: 'Nunca (ilimitado)', maxUses: 'Usos máximos', unlimited: 'Ilimitados', once: 'Un solo uso',
+      usesLeft: 'quedan {n}', expired: 'Vencido', err_pintime: 'Revisá el horario del invitado (las dos horas, o dejá ambas vacías para siempre).',
+      addPin: 'Agregar invitado', pinName: 'Nombre del invitado', pinCode: 'Código', validFrom: 'Válido desde', validTo: 'Válido hasta', anyDate: 'cualquier fecha',
+      uses: 'Usado {n} veces', lastUse: 'último', neverUsed: 'Sin usar todavía', pinLen: 'Largo del código', digits: 'dígitos', attempts: 'Intentos', callOwner: 'Quien no tenga código puede decir "llamar" y se desvía a mi celular',
+      pinFailAct: 'Después del último intento fallido', outside: 'Fuera de los horarios', out_open: 'Abrir directo', out_pin: 'Pedir nombre + código', lockNote: 'Los códigos están bloqueados hasta las {t} por intentos fallidos repetidos.',
+      err_pin: 'Cada invitado necesita un código de exactamente {n} dígitos.', err_pindup: 'Hay dos invitados con el mismo código.', sumByCode: 'Entraron con código',
+      subjectLock: 'Gatekeeper: códigos bloqueados', lockMail: 'Hubo demasiados códigos incorrectos en la última hora. Los códigos quedan bloqueados 60 minutos y las llamadas siguen la acción "después del último intento fallido".',
       caller: 'Llamó', duration: 'Duración', openSignal: 'Apertura', sent: 'Enviado', no: 'No', callBox: 'Portero',
       unknownNum: 'Desconocido', callLog: 'Ver log', callBack: 'Llamar', history: 'Historial', panel: 'Panel',
       manualPause: 'Pausa manual', schedule: 'Horario', twilioStatus: 'Estado de Twilio', yes: 'Sí',
       weekly: 'Resumen semanal', openings: 'aperturas', sumOpened: 'Aperturas', sumFailed: 'Fallos', sumBlocked: 'Bloqueadas',
       sumForwarded: 'Desviadas', sumNight: 'Nocturnas', sumOther: 'Otros números', peak: 'Hora pico', busiest: 'Día con más movimiento',
       sumFooter: 'Se envía todos los domingos a las 8 PM', subjectWeekly: 'Resumen semanal del gate',
-      cols: ['Fecha y hora','Día','Hora','De','Portero','Resultado','Duración (s)','Nocturna','Estado Twilio','Call SID','Código','Motivo'],
+      cols: ['Fecha y hora','Día','Hora','De','Portero','Resultado','Duración (s)','Nocturna','Estado Twilio','Call SID','Código','Motivo','Invitado','Nombre dicho'],
       sheetName: 'Gate · Historial de llamadas', tabName: 'Llamadas',
       act_reject: 'Rechazar la llamada', act_forward: 'Desviar a mi celular', act_message: 'Reproducir un mensaje y cortar', act_open_alert: 'Abrir igual + alerta urgente',
       p_title: 'Gatekeeper', p_now: 'Ahora mismo', p_mode: 'Modo', m_auto: 'Automático', m_open: 'Siempre abrir', m_paused: 'Pausado',
@@ -122,7 +141,10 @@ function defaults_() {
     forward: { number: '', timeout: 25, fallback: 'hangup' },  // fallback: hangup | open
     message: L.defaultMessage,
     night: { from: 0, to: 6 },
-    summary: true
+    summary: true,
+    outside: 'open',              // automatic mode, outside schedules: open | pin
+    pins: [],                     // [{id, name, pin, enabled, from, to (dates or ''), days:[0-6], tFrom, tTo ('HH:MM' or '' = always), maxUses (0 = unlimited)}]
+    pinOpts: { length: 4, attempts: 3, callOwner: true, fail: 'reject' }
   };
 }
 
@@ -132,7 +154,8 @@ function cfg_() {
   try { c = JSON.parse(PROPS.getProperty('config') || '{}'); } catch (e) {}
   // v1.0 → v1.1: the old "paused" / "pausado" flag becomes mode = paused
   if (!c.mode && (PROPS.getProperty('paused') === '1' || PROPS.getProperty('pausado') === '1')) c.mode = 'paused';
-  return Object.assign(d, c, { forward: Object.assign(d.forward, c.forward || {}), night: Object.assign(d.night, c.night || {}) });
+  return Object.assign(d, c, { forward: Object.assign(d.forward, c.forward || {}), night: Object.assign(d.night, c.night || {}),
+                               pinOpts: Object.assign(d.pinOpts, c.pinOpts || {}) });
 }
 
 function saveCfg_(c) {
@@ -165,6 +188,7 @@ function state_(d, c) {
   if (c.mode === 'paused') return { open: false, reason: 'manual', action: c.pausedAction };
   const r = c.rules.filter(x => ruleActive_(x, d))[0];
   if (r) return { open: false, reason: 'schedule', action: r.action, rule: r };
+  if (c.outside === 'pin') return { open: false, reason: 'auto', action: 'pin' };
   return { open: true, reason: 'auto' };
 }
 
@@ -182,6 +206,7 @@ function doPost(e) {
   const type = p.type || p.tipo;
   if (type === 'voice' || type === 'voz') return answerCall_(p);
   if (type === 'dial') return dialEnded_(p);
+  if (type === 'pin') return pinStep_(p);
   return callFinished_(p);
 }
 
@@ -226,29 +251,133 @@ function auth_(key) { if (!(isOwner_() || (key && key === panelKey_()))) throw n
 function answerCall_(p) {
   const c = cfg_();
   const s = state_(new Date(), c);
-  let rec, twiml;
-
-  if (s.open || s.action === 'open_alert') {
-    rec = { o: s.open ? 'opened' : 'opened_alert' };
-    twiml = openTwiml_();
-  } else if (s.action === 'forward' && /^\+\d{8,15}$/.test(c.forward.number)) {
-    rec = { o: 'forwarded' };
-    const action = xml_(WEB_URL + '?k=' + TOKEN + '&type=dial');
-    twiml = '<Response><Dial timeout="' + Number(c.forward.timeout || 25) + '" answerOnBridge="true" action="' + action + '" method="POST">' +
-            '<Number>' + xml_(c.forward.number) + '</Number></Dial></Response>';
-  } else if (s.action === 'message') {
-    rec = { o: 'message' };
-    twiml = '<Response><Pause length="1"/><Say language="' + L.voice.language + '" voice="' + L.voice.voice + '">' +
-            xml_(c.message || L.defaultMessage) + '</Say><Hangup/></Response>';
-  } else {
-    rec = { o: 'rejected' };
-    twiml = '<Response><Reject reason="busy"/></Response>';
+  const why = { why: s.reason };
+  if (s.rule) why.rule = s.rule.name + ' (' + s.rule.from + '–' + s.rule.to + ')';
+  if (s.open) { putRec_(p.CallSid, Object.assign({ o: 'opened' }, why)); return xmlOut_(openTwiml_()); }
+  if (s.action === 'pin') {
+    if (pinLocked_()) {                                      // too many wrong codes recently
+      const a = runAction_(c.pinOpts.fail, c);
+      putRec_(p.CallSid, Object.assign({ o: a.o, locked: true }, why));
+      return xmlOut_(a.twiml);
+    }
+    putRec_(p.CallSid, Object.assign({ o: 'pin_pending' }, why));
+    return xmlOut_(gather_('name', 1, sayBoth_('Hola. Por favor, diga su nombre.', 'Hello. Please say your name.')));
   }
-  rec.why = s.reason;
-  if (s.rule) rec.rule = s.rule.name + ' (' + s.rule.from + '–' + s.rule.to + ')';
-  putRec_(p.CallSid, rec);
-  return xmlOut_(twiml);
+  const a = runAction_(s.action, c);
+  putRec_(p.CallSid, Object.assign({ o: a.o }, why));
+  return xmlOut_(a.twiml);
 }
+
+// Builds the TwiML for a non-PIN action → { o, twiml }
+function runAction_(action, c) {
+  if (action === 'open_alert') return { o: 'opened_alert', twiml: openTwiml_() };
+  if (action === 'forward' && /^\+\d{8,15}$/.test(c.forward.number)) {
+    const url = xml_(WEB_URL + '?k=' + TOKEN + '&type=dial');
+    return { o: 'forwarded', twiml: '<Response><Dial timeout="' + Number(c.forward.timeout || 25) + '" answerOnBridge="true" action="' + url + '" method="POST">' +
+             '<Number>' + xml_(c.forward.number) + '</Number></Dial></Response>' };
+  }
+  if (action === 'message') return { o: 'message', twiml: '<Response><Pause length="1"/><Say language="' + L.voice.language + '" voice="' + L.voice.voice + '">' +
+             xml_(c.message || L.defaultMessage) + '</Say><Hangup/></Response>' };
+  return { o: 'rejected', twiml: '<Response><Reject reason="busy"/></Response>' };
+}
+
+// ---------------------------------------------------------------------
+//  1b) GUEST CODES — ask name, then PIN, by voice (Spanish or English)
+// ---------------------------------------------------------------------
+function sayBoth_(es, en) {
+  return '<Say language="es-MX" voice="Polly.Mia">' + xml_(es) + '</Say><Say language="en-US" voice="Polly.Joanna">' + xml_(en) + '</Say>';
+}
+
+function gather_(step, n, prompt) {
+  const url = xml_(WEB_URL + '?k=' + TOKEN + '&type=pin&step=' + step + '&n=' + n);
+  return '<Response><Gather input="speech" speechModel="deepgram_nova-3" language="multi" speechTimeout="auto" timeout="6" ' +
+         'actionOnEmptyResult="true" action="' + url + '" method="POST">' + prompt + '</Gather><Redirect method="POST">' + url + '</Redirect></Response>';
+}
+
+function pinStep_(p) {
+  const c = cfg_(), o = c.pinOpts;
+  const rec = getRec_(p.CallSid) || { o: 'pin_pending', why: 'auto' };
+  const n = Number(p.n || 1), said = String(p.SpeechResult || '').trim();
+  const askPin = (pre) => gather_('pin', n, (pre || '') + sayBoth_('Ahora diga su código, número por número.', 'Now say your code, one digit at a time.') +
+    (o.callOwner && /^\+\d{8,15}$/.test(c.forward.number) ? sayBoth_('Si no tiene código, diga llamar.', 'If you don\'t have a code, say call.') : ''));
+
+  if (p.step === 'name') {                                      // name is only for the record
+    rec.said = said.slice(0, 60);
+    putRec_(p.CallSid, rec);
+    return xmlOut_(askPin(''));
+  }
+
+  // step = pin
+  const norm = said.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (o.callOwner && /\b(llamar|llama|llamada|call|owner|dueno|duena)\b/.test(norm) && !/\d/.test(spokenDigits_(said))) {
+    const a = runAction_('forward', c);
+    rec.o = a.o; rec.askedCall = true; putRec_(p.CallSid, rec);
+    return xmlOut_(a.twiml);
+  }
+  const digits = spokenDigits_(said);
+  const guest = matchPin_(digits, c);
+  if (guest) {
+    rec.o = 'opened_pin'; rec.guest = guest.name; rec.pinId = guest.id;
+    putRec_(p.CallSid, rec); bumpPinStats_(guest.id);
+    return xmlOut_(openTwiml_());
+  }
+  if (n < o.attempts) {
+    return xmlOut_(gather_('pin', n + 1, sayBoth_('Código incorrecto.', 'Wrong code.') +
+      sayBoth_('Diga su código nuevamente, número por número.', 'Please say your code again, one digit at a time.')));
+  }
+  recordPinFail_();
+  const a = runAction_(o.fail, c);
+  rec.o = a.o; rec.pinFail = n; putRec_(p.CallSid, rec);
+  return xmlOut_(a.twiml);
+}
+
+// "uno dos tres cuatro", "one two three four", "1 2 3 4", "1234" → "1234"
+function spokenDigits_(s) {
+  const W = { cero: 0, zero: 0, oh: 0, uno: 1, una: 1, un: 1, one: 1, won: 1, dos: 2, two: 2, to: 2, too: 2, tres: 3, three: 3, tree: 3,
+              cuatro: 4, four: 4, for: 4, cinco: 5, five: 5, seis: 6, six: 6, siete: 7, seven: 7, ocho: 8, eight: 8, ate: 8, nueve: 9, nine: 9 };
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+    .map(t => /^\d+$/.test(t) ? t : (t in W ? String(W[t]) : '')).join('');
+}
+
+function matchPin_(digits, c) {
+  if (!digits) return null;
+  const g = (c.pins || []).filter(x => x.pin === digits)[0];
+  return g && pinValidNow_(g, new Date()) ? g : null;
+}
+
+// Is a guest code usable right now? (enabled, date range, days, hours, uses left)
+function pinValidNow_(g, d) {
+  if (!g.enabled) return false;
+  const today = Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
+  if ((g.from && today < g.from) || (g.to && today > g.to)) return false;
+  const days = g.days && g.days.length ? g.days : [0, 1, 2, 3, 4, 5, 6];
+  if (g.tFrom && g.tTo) { if (!ruleActive_({ enabled: true, days: days, from: g.tFrom, to: g.tTo }, d)) return false; }
+  else if (days.indexOf(nowParts_(d).dow) < 0) return false;
+  if (g.maxUses > 0) {
+    let st = {}; try { st = JSON.parse(PROPS.getProperty('pinStats') || '{}'); } catch (e) {}
+    if (((st[g.id] && st[g.id].uses) || 0) >= g.maxUses) return false;
+  }
+  return true;
+}
+
+function bumpPinStats_(id) {
+  let st = {}; try { st = JSON.parse(PROPS.getProperty('pinStats') || '{}'); } catch (e) {}
+  st[id] = { uses: ((st[id] && st[id].uses) || 0) + 1, last: Utilities.formatDate(new Date(), TZ, LANG === 'es' ? 'd/M h:mm a' : 'M/d h:mm a') };
+  PROPS.setProperty('pinStats', JSON.stringify(st));
+}
+
+// Lock code entry for 60 min after 5 failed calls within an hour (brute-force protection)
+function recordPinFail_() {
+  const now = Date.now();
+  let f = []; try { f = JSON.parse(PROPS.getProperty('pinFails') || '[]'); } catch (e) {}
+  f = f.filter(t => now - t < 3600e3).concat(now);
+  PROPS.setProperty('pinFails', JSON.stringify(f));
+  if (f.length >= 5 && !pinLocked_()) {
+    PROPS.setProperty('pinLockUntil', String(now + 3600e3));
+    MailApp.sendEmail({ to: EMAIL, subject: '🔒 ' + T.subjectLock, body: T.lockMail, name: 'Gatekeeper' });
+  }
+}
+function pinLocked_() { return Number(PROPS.getProperty('pinLockUntil') || 0) > Date.now(); }
 
 function dialEnded_(p) {
   const rec = getRec_(p.CallSid) || { o: 'forwarded' };
@@ -279,22 +408,26 @@ function callFinished_(p) {
 
   let code;
   const o = rec ? rec.o : 'opened';
-  if (o === 'opened' || o === 'opened_alert') code = ok ? o : 'failed';
+  if (o === 'opened' || o === 'opened_alert' || o === 'opened_pin') code = ok ? o : 'failed';
+  else if (o === 'pin_pending') code = 'failed';                 // hung up before finishing
   else if (o === 'forwarded') code = rec.dial === 'completed' ? 'fwd_answered' : (rec.fb === 'opened' ? 'fwd_opened' : 'fwd_missed');
   else code = o;                                           // rejected | message
 
   const d = {
     code: code,
     fromCallBox: p.From === CALL_BOX,
-    night: (code === 'opened' || code === 'opened_alert' || code === 'fwd_opened') && inNight_(hour, c.night),
+    night: (code === 'opened' || code === 'opened_alert' || code === 'fwd_opened' || code === 'opened_pin') && inNight_(hour, c.night),
     time: Utilities.formatDate(date, TZ, 'h:mm a'),
     day: longDate_(date),
-    who: p.From === CALL_BOX ? T.callBox : formatPhone_(p.From),
+    who: rec && rec.guest ? rec.guest : (p.From === CALL_BOX ? T.callBox : formatPhone_(p.From)),
+    guest: (rec && rec.guest) || '',
+    said: (rec && rec.said) || '',
     dur: dur + ' s',
     from: p.From || '',
     sid: p.CallSid || '',
     twilioStatus: p.CallStatus || '',
-    reason: rec && rec.why === 'manual' ? T.manualPause : (rec && rec.rule ? T.schedule + ': ' + rec.rule : '')
+    reason: [rec && rec.locked ? T.pinLocked : '', rec && rec.pinFail ? T.pinFail.replace('{n}', rec.pinFail) : '',
+             rec && rec.why === 'manual' ? T.manualPause : (rec && rec.rule ? T.schedule + ': ' + rec.rule : '')].filter(String).join(' · ')
   };
 
   try { logToSheet_(date, d); } catch (err) { console.error('Sheet: ' + err); }
@@ -320,9 +453,10 @@ function theme_(d) {
     fwd_missed:   { icon: '📵', color: '#d97706', bg: '#fef3c7', sig: ['📵', T.no] },
     fwd_opened:   { icon: '🔓', color: '#0891b2', bg: '#cffafe', sig: ['9️⃣', T.sent] },
     opened_alert: { icon: '🚨', color: '#dc2626', bg: '#fee2e2', sig: ['9️⃣', T.sent] },
+    opened_pin:   { icon: '🔑', color: '#16a34a', bg: '#dcfce7', sig: ['9️⃣', T.sent] },
     opened:       { icon: '🔓', color: '#16a34a', bg: '#dcfce7', sig: ['9️⃣', T.sent] }
   };
-  let k = d.code, x = Object.assign({ title: T[k] }, K[k] || K.opened);
+  let k = d.code, x = Object.assign({ title: String(T[k] || T.opened).replace('{n}', d.guest || '') }, K[k] || K.opened);
   if (k === 'opened' && d.night)       x = Object.assign(x, { icon: '🌙', title: T.night,   color: '#7c3aed', bg: '#ede9fe' });
   else if (k === 'opened' && !d.fromCallBox) x = Object.assign(x, { icon: '⚠️', title: T.unknown, color: '#d97706', bg: '#fef3c7' });
   return x;
@@ -337,7 +471,7 @@ function logToSheet_(date, d) {
   const sh = sheet_();
   if (sh.getLastColumn() < T.cols.length) sh.getRange(1, 1, 1, T.cols.length).setValues([T.cols]);  // upgrade v1.0 header
   sh.appendRow([date, d.day, d.time, "'" + d.from, d.fromCallBox ? T.yes : 'No', theme_(d).title,
-                parseInt(d.dur, 10), d.night ? T.yes : 'No', d.twilioStatus, d.sid, d.code, d.reason]);
+                parseInt(d.dur, 10), d.night ? T.yes : 'No', d.twilioStatus, d.sid, d.code, d.reason, d.guest, d.said]);
 }
 
 function recentCalls_(n) {
@@ -345,7 +479,7 @@ function recentCalls_(n) {
     const sh = sheet_(), last = sh.getLastRow();
     if (last < 2) return [];
     const from = Math.max(2, last - n + 1);
-    return sh.getRange(from, 1, last - from + 1, Math.min(sh.getLastColumn(), 12)).getValues().reverse().map(r => ({
+    return sh.getRange(from, 1, last - from + 1, Math.min(sh.getLastColumn(), 14)).getValues().reverse().map(r => ({
       day: String(r[1]), time: String(r[2]), from: String(r[3]), result: String(r[5]), code: String(r[10] || 'opened')
     }));
   } catch (e) { return []; }
@@ -361,7 +495,8 @@ function weeklySummary() {
   const code = r => String(r[10] || (r[5] === T.failed ? 'failed' : 'opened'));
   const is = list => r => list.indexOf(code(r)) >= 0;
 
-  const opened  = rows.filter(is(['opened', 'opened_alert', 'fwd_opened']));
+  const opened  = rows.filter(is(['opened', 'opened_alert', 'fwd_opened', 'opened_pin']));
+  const guests = {}; rows.filter(is(['opened_pin'])).forEach(r => { const g = String(r[12] || '?'); guests[g] = (guests[g] || 0) + 1; });
   const s = {
     opened: opened.length,
     failed: rows.filter(is(['failed'])).length,
@@ -378,6 +513,7 @@ function weeklySummary() {
   const top = o => Object.keys(o).sort((a, b) => o[b] - o[a])[0];
   s.peak = top(byHour) === undefined ? '—' : hourLabel_(Number(top(byHour)));
   s.busiest = top(byDay) === undefined ? '—' : cap_(L.days[Number(top(byDay))]);
+  s.guests = Object.keys(guests).sort((a, b) => guests[b] - guests[a]).map(g => g + ' (' + guests[g] + ')').join(', ');
   s.range = Utilities.formatDate(since, TZ, LANG === 'es' ? 'd/M' : 'M/d') + ' – ' + Utilities.formatDate(new Date(), TZ, LANG === 'es' ? 'd/M' : 'M/d');
 
   const plain = T.weekly + ' (' + s.range + ')\n' + T.sumOpened + ': ' + s.opened + ' · ' + T.sumFailed + ': ' + s.failed +
@@ -420,7 +556,10 @@ function testSummary() { if (isOwner_()) weeklySummary(); }
 function panelData(key) {
   auth_(key);
   const c = cfg_(), s = state_(new Date(), c);
-  return { cfg: c, state: describeState_(s, c), recent: recentCalls_(8), sheetUrl: PROPS.getProperty('sheetUrl') || '' };
+  let st = {}; try { st = JSON.parse(PROPS.getProperty('pinStats') || '{}'); } catch (e) {}
+  const lock = Number(PROPS.getProperty('pinLockUntil') || 0);
+  return { cfg: c, state: describeState_(s, c), recent: recentCalls_(8), sheetUrl: PROPS.getProperty('sheetUrl') || '',
+           pinStats: st, pinLock: lock > Date.now() ? Utilities.formatDate(new Date(lock), TZ, 'h:mm a') : '' };
 }
 
 function panelSave(c, key) {
@@ -458,12 +597,33 @@ function validate_(c) {
   const n = c.night || {};
   out.night = { from: Math.min(23, Math.max(0, Number(n.from) || 0)), to: Math.min(24, Math.max(0, Number(n.to) || 0)) };
   out.summary = !!c.summary;
+  out.outside = c.outside === 'pin' ? 'pin' : 'open';
+  const po = c.pinOpts || {};
+  out.pinOpts = { length: Math.min(8, Math.max(4, Number(po.length) || 4)), attempts: Math.min(5, Math.max(1, Number(po.attempts) || 3)),
+                  callOwner: po.callOwner !== false, fail: FAIL_ACTIONS.indexOf(po.fail) >= 0 ? po.fail : 'reject' };
+  const seen = {};
+  out.pins = (c.pins || []).slice(0, 100).map((g, i) => {
+    const pin = String(g.pin || '').replace(/\D/g, '');
+    if (pin.length !== out.pinOpts.length) throw new Error(T.err_pin.replace('{n}', out.pinOpts.length));
+    if (seen[pin]) throw new Error(T.err_pindup); seen[pin] = 1;
+    const dt = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : '';
+    const tm = v => /^\d{1,2}:\d{2}$/.test(v || '') ? v : '';
+    const tFrom = tm(g.tFrom), tTo = tm(g.tTo);
+    if (!!tFrom !== !!tTo) throw new Error(T.err_pintime);
+    const days = (g.days && g.days.length ? g.days : [0, 1, 2, 3, 4, 5, 6]).map(Number).filter(x => x >= 0 && x <= 6);
+    if (!days.length) throw new Error(T.err_days);
+    return { id: String(g.id || ('g' + Date.now() + i)).slice(0, 40), name: String(g.name || T.guest).slice(0, 40), pin: pin,
+             enabled: g.enabled !== false, from: dt(g.from), to: dt(g.to), days: days, tFrom: tFrom, tTo: tTo,
+             maxUses: Math.min(999, Math.max(0, parseInt(g.maxUses, 10) || 0)) };
+  });
+  if (out.pinOpts.fail === 'forward' && !/^\+\d{8,15}$/.test(out.forward.number)) throw new Error(T.err_phone);
   return out;
 }
 
 function describeState_(s, c) {
   const act = a => T['act_' + a];
   if (s.reason === 'forced') return { kind: 'open', icon: '🔓', title: T.s_forced, sub: T.will_open };
+  if (s.reason === 'auto' && s.action === 'pin') return { kind: 'sched', icon: '🔑', title: T.out_pin, sub: T.act_pin };
   if (s.reason === 'auto') return { kind: 'open', icon: '🔓', title: T.s_open, sub: T.will_open };
   if (s.reason === 'manual') return { kind: 'paused', icon: '⏸️', title: T.s_paused, sub: T.will + ' ' + act(s.action).toLowerCase() };
   return { kind: 'sched', icon: '🌙', title: T.s_sched + ' · ' + T.until + ' ' + hhmmLabel_(s.rule.to),
@@ -510,11 +670,12 @@ function buttonRow_(extra) {
 
 function callEmail_(d, t) {
   const notes = (d.code === 'failed' ? note_(T.twilioStatus + ': ' + d.twilioStatus, '#991b1b', '#fee2e2') : '') +
+                (d.said ? note_('🗣️ ' + T.saidName + ': “' + xml_(d.said) + '”', '#1e3a8a', '#dbeafe') : '') +
                 (d.reason ? note_(d.reason, '#475569', '#f1f5f9') : '');
   return card_(
     header_(t.icon, t.title, d.time, d.day, t.color, t.bg) + notes +
     '<table role="presentation" width="100%" style="margin-top:28px;border-collapse:collapse"><tr>' +
-      stat_('📞', d.who, T.caller) + stat_('⏱️', d.dur, T.duration) + stat_(t.sig[0], t.sig[1], T.openSignal) +
+      stat_(d.guest ? '🔑' : '📞', d.who, d.guest ? T.guest : T.caller) + stat_('⏱️', d.dur, T.duration) + stat_(t.sig[0], t.sig[1], T.openSignal) +
     '</tr></table>' +
     buttonRow_(roundButton_('https://console.twilio.com/us1/monitor/logs/calls/' + d.sid, '📋', T.callLog, '#e0e7ff') +
                roundButton_('tel:' + d.from, '📲', T.callBack, '#dcfce7')),
@@ -528,6 +689,7 @@ function summaryEmail_(s) {
     row(stat_('🔓', s.opened, T.sumOpened), stat_('❌', s.failed, T.sumFailed), stat_('⛔', s.blocked, T.sumBlocked)) +
     row(stat_('📲', s.forwarded, T.sumForwarded), stat_('🌙', s.night, T.sumNight), stat_('⚠️', s.unknown, T.sumOther)) +
     '<div style="text-align:center;margin-top:18px;font-size:14px;color:#475569">' + T.peak + ': <b>' + s.peak + '</b> · ' + T.busiest + ': <b>' + s.busiest + '</b></div>' +
+    (s.guests ? '<div style="text-align:center;margin-top:8px;font-size:14px;color:#475569">🔑 ' + T.sumByCode + ': <b>' + xml_(s.guests) + '</b></div>' : '') +
     buttonRow_(''), T.sumFooter);
 }
 
@@ -578,7 +740,7 @@ const PANEL_HTML_ = `<!doctype html><html><head><meta charset="utf-8"><title>Gat
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.seg button{border:0;border-radius:16px;padding:12px 6px;background:#f1f5f9;font:inherit;font-weight:700;color:var(--slate);cursor:pointer}
 .seg button .e{display:block;font-size:24px;margin-bottom:4px}.seg button.on{background:var(--ink);color:#fff}
 .hint{color:var(--mute);font-size:13px;margin-top:10px}
-label.f{display:block;font-size:13px;color:var(--mute);margin:12px 0 6px}select,input[type=text],input[type=tel],input[type=time],textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit;background:#fff;color:var(--ink)}
+label.f{display:block;font-size:13px;color:var(--mute);margin:12px 0 6px}select,input[type=text],input[type=tel],input[type=time],input[type=date],textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit;background:#fff;color:var(--ink)}
 textarea{min-height:70px;resize:vertical}
 .rule{border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px}.rule.off{opacity:.55}
 .rh{display:flex;gap:10px;align-items:center}.rh input{flex:1;font-weight:700}
@@ -619,8 +781,8 @@ function boot(){
   call('data',null,function(j){start({data:j,key:KEY,link:j.link,T:j.T,days:j.days,version:j.version})},
     function(e){app.innerHTML='<div class="card hero k-paused"><div class="ring">⚠️</div><div class="t">Gatekeeper</div><div class="s">'+h(e.message)+'</div></div>'});
 }
-var ACT=['reject','forward','message','open_alert'];
-var ICON={opened:'🔓',opened_alert:'🚨',failed:'❌',rejected:'⛔',message:'🔇',fwd_answered:'📲',fwd_missed:'📵',fwd_opened:'🔓'};
+var ACT=['reject','forward','message','open_alert','pin'],FAILACT=['reject','forward','message'];
+var ICON={opened_pin:'🔑',opened:'🔓',opened_alert:'🚨',failed:'❌',rejected:'⛔',message:'🔇',fwd_answered:'📲',fwd_missed:'📵',fwd_opened:'🔓'};
 function h(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function opts(list,sel,lab){return list.map(function(v){return '<option value="'+v+'"'+(v==sel?' selected':'')+'>'+h(lab(v))+'</option>'}).join('')}
 function hours(sel){var o='';for(var i=0;i<=24;i++){o+='<option value="'+i+'"'+(i==sel?' selected':'')+'>'+((i%12)||12)+(i<12||i==24?' AM':' PM')+'</option>'}return o}
@@ -632,7 +794,30 @@ function render(){
   html+='<div class="card"><h2>'+T.p_mode+'</h2><div class="seg">'+
     [['auto','🤖',T.m_auto],['open','🔓',T.m_open],['paused','⏸️',T.m_paused]].map(function(x){return '<button data-mode="'+x[0]+'" class="'+(m==x[0]?'on':'')+'"><span class="e">'+x[1]+'</span>'+x[2]+'</button>'}).join('')+
     '</div><div class="hint">'+T['m_'+m+'_d']+'</div>'+
-    (m=='paused'?'<label class="f">'+T.pausedAction+'</label><select id="pa">'+opts(ACT,S.pausedAction,function(a){return T['act_'+a]})+'</select>':'')+'</div>';
+    (m=='paused'?'<label class="f">'+T.pausedAction+'</label><select id="pa">'+opts(ACT,S.pausedAction,function(a){return T['act_'+a]})+'</select>':'')+
+    (m=='auto'?'<label class="f">'+T.outside+'</label><select id="os">'+opts(['open','pin'],S.outside,function(v){return T['out_'+v]})+'</select>':'')+'</div>';
+  var po=S.pinOpts, st=D.pinStats||{};
+  html+='<div class="card"><h2>🔑 '+T.pins+'</h2><div class="hint" style="margin:-4px 0 12px">'+T.pinsHint+'</div>'+
+    (D.pinLock?'<div class="err" style="display:block">🔒 '+h(T.lockNote.replace('{t}',D.pinLock))+'</div>':'');
+  S.pins.forEach(function(g,i){var u=st[g.id];
+    html+='<div class="rule'+(g.enabled?'':' off')+'" data-g="'+i+'"><div class="rh"><label class="sw"><input type="checkbox" data-gk="enabled"'+(g.enabled?' checked':'')+'><span></span></label>'+
+      '<input type="text" data-gk="name" value="'+h(g.name)+'" maxlength="40" placeholder="'+h(T.pinName)+'"><button class="x" data-gdel="'+i+'">✕</button></div>'+
+      '<div class="two"><div><label class="f">'+T.pinCode+'</label><div style="display:flex;gap:6px"><input type="text" inputmode="numeric" data-gk="pin" value="'+h(g.pin)+'" maxlength="'+po.length+'" style="font:700 20px ui-monospace,monospace;letter-spacing:4px"><button class="x" style="background:#ede9fe;color:#6d28d9" data-grnd="'+i+'">🎲</button></div></div>'+
+      '<div><label class="f">&nbsp;</label><div class="hint" style="margin-top:12px">'+(u?h(T.uses.replace('{n}',u.uses))+' · '+T.lastUse+' '+h(u.last):T.neverUsed)+'</div></div></div>'+
+      '<label class="f">'+T.pinDays+'</label><div class="days" style="margin-top:0">'+B.days.map(function(d,j){return '<button data-gday="'+j+'" class="'+((g.days||[0,1,2,3,4,5,6]).indexOf(j)>=0?'on':'')+'">'+d+'</button>'}).join('')+'</div>'+
+      '<label class="f">'+T.pinHours+'</label>'+
+      '<div class="two"><input type="time" data-gk="tFrom" value="'+h(g.tFrom||'')+'"><input type="time" data-gk="tTo" value="'+h(g.tTo||'')+'"></div>'+
+      '<div class="hint">'+((g.tFrom&&g.tTo)?'':'⏰ '+T.always)+'</div>'+
+      '<div class="two"><div><label class="f">'+T.expires+'</label><input type="date" data-gk="to" value="'+h(g.to)+'"><div class="hint">'+(g.to?'':'♾️ '+T.never)+'</div></div>'+
+      '<div><label class="f">'+T.maxUses+'</label><select data-gk="maxUses">'+opts([0,1,2,3,5,10,20,50],g.maxUses||0,function(v){return v==0?T.unlimited:(v==1?T.once:v)})+'</select>'+
+      (g.maxUses>0&&u?'<div class="hint">'+h(T.usesLeft.replace('{n}',Math.max(0,g.maxUses-u.uses)))+'</div>':'')+'</div></div>'+
+      '<label class="f">'+T.validFrom+'</label><input type="date" data-gk="from" value="'+h(g.from)+'"></div>';
+  });
+  html+='<button class="add" id="addg">＋ '+T.addPin+'</button>'+
+    '<div class="two"><div><label class="f">'+T.pinLen+'</label><select id="pl">'+opts([4,5,6,7,8],po.length,function(v){return v+' '+T.digits})+'</select></div>'+
+    '<div><label class="f">'+T.attempts+'</label><select id="pt">'+opts([1,2,3,4,5],po.attempts,function(v){return v})+'</select></div></div>'+
+    '<label class="f">'+T.pinFailAct+'</label><select id="pf">'+opts(FAILACT,po.fail,function(a){return T['act_'+a]})+'</select>'+
+    '<div class="row"><span>'+T.callOwner+'</span><label class="sw"><input type="checkbox" id="pco"'+(po.callOwner?' checked':'')+'><span></span></label></div></div>';
   html+='<div class="card"><h2>'+T.schedules+'</h2><div class="hint" style="margin:-4px 0 12px">'+T.sched_hint+'</div>';
   S.rules.forEach(function(r,i){
     html+='<div class="rule'+(r.enabled?'':' off')+'" data-i="'+i+'"><div class="rh"><label class="sw"><input type="checkbox" data-k="enabled"'+(r.enabled?' checked':'')+'><span></span></label>'+
@@ -659,6 +844,18 @@ function bind(){
   var app=document.getElementById('app');
   app.querySelectorAll('[data-mode]').forEach(function(b){b.onclick=function(){S.mode=b.dataset.mode;render();save()}});
   var pa=document.getElementById('pa'); if(pa) pa.onchange=function(){S.pausedAction=pa.value;mark()};
+  var os=document.getElementById('os'); if(os) os.onchange=function(){S.outside=os.value;mark()};
+  function rnd(){var n=S.pinOpts.length,x='';for(var k=0;k<n;k++)x+=Math.floor(Math.random()*10);return x}
+  app.querySelectorAll('[data-g]').forEach(function(el){var g=S.pins[+el.dataset.g];
+    el.querySelectorAll('[data-gk]').forEach(function(inp){inp.oninput=inp.onchange=function(){var k=inp.dataset.gk;g[k]=inp.type=='checkbox'?inp.checked:(k=='pin'?inp.value.replace(/\D/g,''):inp.value);if(k=='pin')inp.value=g.pin;if(inp.type=='checkbox')el.classList.toggle('off',!inp.checked);mark()}});
+    var rb=el.querySelector('[data-grnd]');rb.onclick=function(){g.pin=rnd();el.querySelector('[data-gk=pin]').value=g.pin;mark()};
+    el.querySelectorAll('[data-gday]').forEach(function(b){b.onclick=function(){g.days=g.days||[0,1,2,3,4,5,6];var d=+b.dataset.gday,k=g.days.indexOf(d);if(k>=0)g.days.splice(k,1);else g.days.push(d);b.classList.toggle('on');mark()}});
+    var mu=el.querySelector('[data-gk=maxUses]');mu.onchange=function(){g.maxUses=+mu.value;mark()};
+  });
+  app.querySelectorAll('[data-gdel]').forEach(function(b){b.onclick=function(){S.pins.splice(+b.dataset.gdel,1);render();mark()}});
+  document.getElementById('addg').onclick=function(){S.pins.push({id:'g'+Date.now(),name:'',pin:rnd(),enabled:true,from:'',to:'',days:[0,1,2,3,4,5,6],tFrom:'',tTo:'',maxUses:0});render();mark()};
+  [['pl',function(v){S.pinOpts.length=+v}],['pt',function(v){S.pinOpts.attempts=+v}],['pf',function(v){S.pinOpts.fail=v}]].forEach(function(x){var e=document.getElementById(x[0]);e.onchange=function(){x[1](e.value);mark();if(x[0]=='pl')render()}});
+  document.getElementById('pco').onchange=function(e){S.pinOpts.callOwner=e.target.checked;mark()};
   app.querySelectorAll('.rule').forEach(function(el){
     var r=S.rules[+el.dataset.i];
     el.querySelectorAll('[data-k]').forEach(function(inp){inp.oninput=inp.onchange=function(){r[inp.dataset.k]=inp.type=='checkbox'?inp.checked:inp.value;if(inp.type=='checkbox')el.classList.toggle('off',!inp.checked);mark()}});
