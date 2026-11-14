@@ -267,7 +267,7 @@ function answerCall_(p) {
       return xmlOut_(a.twiml);
     }
     putRec_(p.CallSid, Object.assign({ o: 'pin_pending' }, why));
-    return xmlOut_(gather_('name', 1, sayBoth_('Hola. Por favor, diga su nombre.', 'Hello. Please say your name.')));
+    return xmlOut_(gather_('name', 1, sayBoth_('Diga su nombre.', 'Say your name.')));
   }
   const a = runAction_(s.action, c);
   putRec_(p.CallSid, Object.assign({ o: a.o }, why));
@@ -294,9 +294,13 @@ function sayBoth_(es, en) {
   return '<Say language="es-MX" voice="Polly.Mia">' + xml_(es) + '</Say><Say language="en-US" voice="Polly.Joanna">' + xml_(en) + '</Say>';
 }
 
+// bargeIn="false": many call boxes have no echo cancellation, so the prompt leaks back into the
+// microphone. Without this, the recognizer hears its own prompt, cuts it off and treats it as the answer.
+const DIGIT_HINTS = 'cero,uno,dos,tres,cuatro,cinco,seis,siete,ocho,nueve,zero,one,two,three,four,five,six,seven,eight,nine,llamar,call';
 function gather_(step, n, prompt) {
   const url = xml_(WEB_URL + '?k=' + TOKEN + '&type=pin&step=' + step + '&n=' + n);
-  return '<Response><Gather input="speech" speechModel="deepgram_nova-3" language="multi" speechTimeout="auto" timeout="6" ' +
+  return '<Response><Gather input="speech" speechModel="deepgram_nova-3" language="multi" bargeIn="false" speechTimeout="2" timeout="8" ' +
+         (step === 'pin' ? 'hints="' + DIGIT_HINTS + '" ' : '') +
          'actionOnEmptyResult="true" action="' + url + '" method="POST">' + prompt + '</Gather><Redirect method="POST">' + url + '</Redirect></Response>';
 }
 
@@ -304,8 +308,8 @@ function pinStep_(p) {
   const c = cfg_(), o = c.pinOpts;
   const rec = getRec_(p.CallSid) || { o: 'pin_pending', why: 'auto' };
   const n = Number(p.n || 1), said = String(p.SpeechResult || '').trim();
-  const askPin = (pre) => gather_('pin', n, (pre || '') + sayBoth_('Ahora diga su código, número por número.', 'Now say your code, one digit at a time.') +
-    (o.callOwner && /^\+\d{8,15}$/.test(c.forward.number) ? sayBoth_('Si no tiene código, diga llamar.', 'If you don\'t have a code, say call.') : ''));
+  const askPin = (pre) => gather_('pin', n, (pre || '') + sayBoth_('Ahora su código, número por número.', 'Now your code, digit by digit.') +
+    (o.callOwner && /^\+\d{8,15}$/.test(c.forward.number) ? sayBoth_('Sin código, diga llamar.', 'No code? Say call.') : ''));
 
   if (p.step === 'name') {                                      // name is only for the record
     rec.said = said.slice(0, 60);
@@ -328,8 +332,7 @@ function pinStep_(p) {
     return xmlOut_(openTwiml_());
   }
   if (n < o.attempts) {
-    return xmlOut_(gather_('pin', n + 1, sayBoth_('Código incorrecto.', 'Wrong code.') +
-      sayBoth_('Diga su código nuevamente, número por número.', 'Please say your code again, one digit at a time.')));
+    return xmlOut_(gather_('pin', n + 1, sayBoth_('Código incorrecto. Repita su código.', 'Wrong code. Say it again.')));
   }
   recordPinFail_();
   const a = runAction_(o.fail, c);
