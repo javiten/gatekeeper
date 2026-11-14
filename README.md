@@ -30,6 +30,9 @@ It costs about **$0.01 per call** on Twilio. Everything else runs free on Google
 | 🎛️ | **Pause actions** *(v1.1)* | When paused, choose what calls do: **reject**, **forward to your phone** (and if you don't answer, hang up or open anyway), **play a message**, or **open anyway with an urgent alert**. |
 | 📱 | **Admin panel** *(v1.1, hosted in v1.2)* | Mobile web app on GitHub Pages, opened with your **private link**. No Google sign-in needed. Modes: Automatic / Always open / Paused. Edit schedules, forwarding and alerts, and see recent calls. |
 | 🌐 | **English / Spanish** *(v1.1)* | Set `LANG = 'en'` or `'es'`. |
+| 🔑 | **Guest access codes** *(v1.3)* | The visitor **says** their name and their PIN (works with call boxes whose keypad is disabled during the call), in **English or Spanish**, recognized by Deepgram Nova-3 multilingual. A correct code opens the gate and the email tells you **who** came in. |
+| 🗓️ | **Per-code rules** *(v1.3)* | Each code can have an expiry date (or none), days of the week, hours (or always), and max uses (e.g. single-use for a delivery). |
+| 🛡️ | **Brute-force lock** *(v1.3)* | After 5 failed calls in an hour, code entry locks for 60 minutes and you get an email. |
 | 🛟 | **Fail-safe** | If Google is unreachable, Twilio falls back to a static TwiML Bin, so the gate keeps opening. |
 
 ---
@@ -59,6 +62,17 @@ sequenceDiagram
 ```
 
 ---
+
+## 🔑 Guest access codes (v1.3)
+
+1. The visitor calls from the call box, and Gatekeeper answers: *"Hola, por favor diga su nombre / Hello, please say your name."* The name is only logged; it doesn't grant access.
+2. *"Ahora diga su código, número por número / Now say your code, one digit at a time."*
+3. A valid code sends the open digit, and you get **"🔑 Juan came in"** with the name they said. Wrong codes get retries, then your chosen action: reject, forward to your phone, or play a message.
+4. Optional: visitors without a code can say **"call" / "llamar"** to be forwarded to your phone.
+
+Turn it on in the panel: **Mode → Automatic → Outside schedules → Ask for name + code**, or pick *Ask for name + code* as the action of a schedule or of manual pause.
+
+> 💬 Speech recognition is billed by Twilio per `<Gather>` (a few cents per call). Tell guests to speak close to the call box and say the digits one by one.
 
 ## 📱 Admin panel (v1.1)
 
@@ -187,6 +201,7 @@ Gatekeeper is a **personal project**, shared freely so others can learn from it 
 
 - **It can be dangerous.** While it's active, *anyone* who reaches your unit on the call box gets in: visitors, delivery drivers, or a stranger who simply tries your number.
 - **You don't know who enters.** Gatekeeper tells you the date and time the gate opened and which number called. It cannot identify the person at the gate.
+- **Guest codes identify the code, not the person.** A code can be shared or overheard when it's spoken aloud at the gate. Use expiry dates, schedules and single-use codes, and turn off codes you no longer need.
 - **"Open anyway" options** (*Always open* mode, *Open anyway + alert*, and *If I don't answer → open the gate anyway*) keep the gate opening even when you're not around. Use them knowingly.
 - **It's best for family or household use**, where the convenience of not having to answer every call outweighs the risk. Use the ⏸️ pause button when you're away or don't expect anyone.
 - **Check your community's rules.** Some HOAs or property managers don't allow automated gate access.

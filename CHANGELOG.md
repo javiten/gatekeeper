@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.3.0 — 2026-11-14
+### Added
+- **Guest access codes by voice**: the visitor says their name (for the record) and then their PIN, in English or Spanish (`<Gather input="speech" speechModel="deepgram_nova-3" language="multi">`). Works with call boxes whose keypad doesn't send tones during the call.
+- Spoken digit parsing: "uno dos tres cuatro", "one two three four", "1 2 3 4", "1234".
+- Per-code rules: valid from / expires (or unlimited), days of the week, hours (or always), max uses (unlimited, single use, or N), on/off switch, plus usage stats in the panel.
+- New action **"Ask for name + code"**, available for schedules, manual pause, and for automatic mode outside schedules.
+- Retries (1–5), configurable action after the last failure, optional "say *call* to reach the owner" forwarding.
+- Brute-force protection: 5 failed calls within an hour lock code entry for 60 minutes and send an email alert.
+- Emails and history show the guest ("🔑 Juan came in") and the name they said. The weekly summary lists who came in with a code.
+
 ## v1.2.0 — 2026-11-10
 ### Changed
 - **The admin panel is now hosted on GitHub Pages** and talks to Apps Script through a JSON API (`doPost` with `{api, key, cfg}`). It opens reliably on iPhone and Android, even with no Google session or with several Google accounts.
