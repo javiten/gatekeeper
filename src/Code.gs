@@ -22,7 +22,7 @@ const WEB_URL     = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 const PANEL_HOST  = 'https://javiten.github.io/gatekeeper/panel/';   // static admin panel (or host docs/panel yourself)
 // </CONFIG> -----------------------------------------------------------
 
-const VERSION = '1.3.0';
+const VERSION = '1.3.3';
 const PROPS   = PropertiesService.getScriptProperties();
 const ACTIONS = ['reject', 'forward', 'message', 'open_alert', 'pin'];
 const FAIL_ACTIONS = ['reject', 'forward', 'message'];
@@ -42,7 +42,7 @@ const I18N = {
       opened: 'Gate opened', night: 'Night opening', unknown: 'Call from another number', failed: 'Gate did NOT open',
       rejected: 'Call rejected', message: 'Message played', fwd_answered: 'Forwarded · you answered',
       fwd_missed: 'Forwarded · missed', fwd_opened: 'Forwarded · opened anyway', opened_alert: 'Opened during restricted hours',
-      opened_pin: '{n} came in', guest: 'Guest', saidName: 'Said their name is', pinFail: 'Wrong code ({n} attempts)', pinLocked: 'Code entry locked (too many wrong codes)',
+      heard: 'Heard', opened_pin: '{n} came in', guest: 'Guest', saidName: 'Said their name is', pinFail: 'Wrong code ({n} attempts)', pinLocked: 'Code entry locked (too many wrong codes)',
       act_pin: 'Ask for name + access code', pins: 'Access codes (PIN)', pinsHint: 'Guests say their name and then their code out loud, in English or Spanish. A correct code opens the gate and the email tells you who came in.',
       pinDays: 'Days', pinHours: 'Hours', always: 'Always', expires: 'Expires', never: 'Never (unlimited)', maxUses: 'Max uses', unlimited: 'Unlimited', once: 'Single use',
       usesLeft: '{n} left', expired: 'Expired', err_pintime: 'Check the guest hours (both times, or leave both empty for always).',
@@ -93,7 +93,7 @@ const I18N = {
       opened: 'Gate abierto', night: 'Apertura nocturna', unknown: 'Llamada de otro número', failed: 'El gate NO se abrió',
       rejected: 'Llamada rechazada', message: 'Mensaje y corte', fwd_answered: 'Desviada · atendiste',
       fwd_missed: 'Desviada · no atendiste', fwd_opened: 'Desviada · se abrió igual', opened_alert: 'Abierto en horario restringido',
-      opened_pin: 'Entró {n}', guest: 'Invitado', saidName: 'Dijo llamarse', pinFail: 'Código incorrecto ({n} intentos)', pinLocked: 'Códigos bloqueados (demasiados intentos fallidos)',
+      heard: 'Escuchado', opened_pin: 'Entró {n}', guest: 'Invitado', saidName: 'Dijo llamarse', pinFail: 'Código incorrecto ({n} intentos)', pinLocked: 'Códigos bloqueados (demasiados intentos fallidos)',
       act_pin: 'Pedir nombre + código', pins: 'Códigos de acceso (PIN)', pinsHint: 'El invitado dice su nombre y después su código en voz alta, en español o inglés. Si el código es correcto se abre el gate y el email te dice quién entró.',
       pinDays: 'Días', pinHours: 'Horario', always: 'Siempre', expires: 'Vence', never: 'Nunca (ilimitado)', maxUses: 'Usos máximos', unlimited: 'Ilimitados', once: 'Un solo uso',
       usesLeft: 'quedan {n}', expired: 'Vencido', err_pintime: 'Revisá el horario del invitado (las dos horas, o dejá ambas vacías para siempre).',
@@ -297,9 +297,9 @@ function sayBoth_(es, en) {
 // bargeIn="false": many call boxes have no echo cancellation, so the prompt leaks back into the
 // microphone. Without this, the recognizer hears its own prompt, cuts it off and treats it as the answer.
 const DIGIT_HINTS = 'cero,uno,dos,tres,cuatro,cinco,seis,siete,ocho,nueve,zero,one,two,three,four,five,six,seven,eight,nine,llamar,call';
-function gather_(step, n, prompt) {
-  const url = xml_(WEB_URL + '?k=' + TOKEN + '&type=pin&step=' + step + '&n=' + n);
-  return '<Response><Gather input="speech" speechModel="deepgram_nova-3" language="multi" bargeIn="false" speechTimeout="' + (step === 'pin' ? 1 : 2) + '" timeout="8" ' +
+function gather_(step, n, prompt, more) {
+  const url = xml_(WEB_URL + '?k=' + TOKEN + '&type=pin&step=' + step + '&n=' + n + (more ? '&more=' + more : ''));
+  return '<Response><Gather input="speech" speechModel="deepgram_nova-3" language="multi" bargeIn="false" speechTimeout="' + (step === 'pin' ? 1 : 2) + '" timeout="' + (more ? 4 : 8) + '" ' +
          (step === 'pin' ? 'hints="' + DIGIT_HINTS + '" ' : '') +
          'actionOnEmptyResult="true" action="' + url + '" method="POST">' + prompt + '</Gather><Redirect method="POST">' + url + '</Redirect></Response>';
 }
@@ -324,14 +324,23 @@ function pinStep_(p) {
     rec.o = a.o; rec.askedCall = true; putRec_(p.CallSid, rec);
     return xmlOut_(a.twiml);
   }
-  const digits = spokenDigits_(said);
-  const guest = matchPin_(digits, c);
+  // Accumulate digits across short listens, so pauses between digits don't cut the code
+  const len = o.length, more = Number(p.more || 0);
+  const digits = (rec.buf || '') + spokenDigits_(said);
+  if (said) { rec.heard = (rec.heard || []).concat(said.slice(0, 40)).slice(-6); }
+  if (spokenDigits_(said) && digits.length < len && more < 4) {   // heard some digits, but not all yet
+    rec.buf = digits; putRec_(p.CallSid, rec);
+    return xmlOut_(gather_('pin', n, '', more + 1));            // keep listening silently for the rest
+  }
+  rec.buf = '';
+  const guest = matchPin_(digits.slice(0, len), c) || (digits.length > len ? matchPin_(digits.slice(-len), c) : null);
   if (guest) {
     rec.o = 'opened_pin'; rec.guest = guest.name; rec.pinId = guest.id;
     putRec_(p.CallSid, rec); bumpPinStats_(guest.id);
     return xmlOut_(openTwiml_(true));                         // call already connected: send the digit right away
   }
   if (n < o.attempts) {
+    putRec_(p.CallSid, rec);
     return xmlOut_(gather_('pin', n + 1, sayBoth_('Código incorrecto. Repita su código.', 'Wrong code. Say it again.')));
   }
   recordPinFail_();
@@ -435,7 +444,8 @@ function callFinished_(p) {
     from: p.From || '',
     sid: p.CallSid || '',
     twilioStatus: p.CallStatus || '',
-    reason: [rec && rec.locked ? T.pinLocked : '', rec && rec.pinFail ? T.pinFail.replace('{n}', rec.pinFail) : '',
+    reason: [rec && rec.locked ? T.pinLocked : '', rec && rec.pinFail ? T.pinFail.replace('{n}', rec.pinFail) +
+               (rec.heard && rec.heard.length ? ' — ' + T.heard + ': ' + rec.heard.map(h => '«' + h + '»').join(' ') : '') : '',
              rec && rec.why === 'manual' ? T.manualPause : (rec && rec.rule ? T.schedule + ': ' + rec.rule : '')].filter(String).join(' · ')
   };
 

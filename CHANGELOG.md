@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.3.3 — 2026-11-15
+### Fixed
+- **Voice codes on half-duplex call boxes**: prompts can no longer be interrupted (`bargeIn="false"`). The call box speaker was leaking into its microphone, so the recognizer heard its own prompt and treated it as the answer.
+- **Pauses between digits**: digits now add up across short listens, so "four… eight two… one" works while opening stays fast (1 s end-of-speech on the code step, no pause before the open digit).
+### Added
+- Failed attempts log what was heard («…») in the history and the email, to make troubleshooting easier.
+- Panel warning (with a one-tap button) when codes are saved but not requested yet.
+- Example placeholders in every panel field. Date/time fields no longer overlap on iPhone.
+
 ## v1.3.0 — 2026-11-14
 ### Added
 - **Guest access codes by voice**: the visitor says their name (for the record) and then their PIN, in English or Spanish (`<Gather input="speech" speechModel="deepgram_nova-3" language="multi">`). Works with call boxes whose keypad doesn't send tones during the call.
