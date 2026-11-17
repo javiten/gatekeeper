@@ -65,12 +65,12 @@ sequenceDiagram
 
 ## 🔑 Guest access codes (v1.3)
 
-1. The visitor calls from the call box, and Gatekeeper answers: *"Hola, por favor diga su nombre / Hello, please say your name."* The name is only logged; it doesn't grant access.
-2. *"Ahora diga su código, número por número / Now say your code, one digit at a time."*
-3. A valid code sends the open digit, and you get **"🔑 Juan came in"** with the name they said. Wrong codes get retries, then your chosen action: reject, forward to your phone, or play a message.
+1. The visitor calls from the call box, and Gatekeeper answers with a short **"Say code."**
+2. The visitor says the PIN out loud, in English or Spanish ("four eight two one", "cuatro ocho dos uno"). Pauses between digits are fine.
+3. A valid code sends the open digit, and you get **"🔑 Juan came in"**. Wrong codes get retries, then your chosen action: reject, forward to your phone, or play a message.
 4. Optional: visitors without a code can say **"call" / "llamar"** to be forwarded to your phone.
 
-Turn it on in the panel: **Mode → Automatic → Outside schedules → Ask for name + code**, or pick *Ask for name + code* as the action of a schedule or of manual pause.
+Turn it on in the panel: **Mode → Automatic → Outside schedules → Ask for code**, or pick *Ask for code* as the action of a schedule or of manual pause.
 
 > 💬 Speech recognition is billed by Twilio per `<Gather>` (a few cents per call). Tell guests to speak close to the call box and say the digits one by one.
 

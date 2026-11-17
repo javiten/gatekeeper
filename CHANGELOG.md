@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.0 — 2026-11-17
+### Changed
+- **Code only, no name step.** Gatekeeper now just says **"Say code."** and listens for the PIN. A shorter prompt means less of the call box's own audio echoes back into its microphone, and the guest can talk sooner. Wrong code → "Wrong code. Say code."
+
 ## v1.3.3 — 2026-11-15
 ### Fixed
 - **Voice codes on half-duplex call boxes**: prompts can no longer be interrupted (`bargeIn="false"`). The call box speaker was leaking into its microphone, so the recognizer heard its own prompt and treated it as the answer.

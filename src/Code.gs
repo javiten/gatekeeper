@@ -22,7 +22,7 @@ const WEB_URL     = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 const PANEL_HOST  = 'https://javiten.github.io/gatekeeper/panel/';   // static admin panel (or host docs/panel yourself)
 // </CONFIG> -----------------------------------------------------------
 
-const VERSION = '1.3.3';
+const VERSION = '1.4.0';
 const PROPS   = PropertiesService.getScriptProperties();
 const ACTIONS = ['reject', 'forward', 'message', 'open_alert', 'pin'];
 const FAIL_ACTIONS = ['reject', 'forward', 'message'];
@@ -43,15 +43,15 @@ const I18N = {
       rejected: 'Call rejected', message: 'Message played', fwd_answered: 'Forwarded · you answered',
       fwd_missed: 'Forwarded · missed', fwd_opened: 'Forwarded · opened anyway', opened_alert: 'Opened during restricted hours',
       heard: 'Heard', opened_pin: '{n} came in', guest: 'Guest', saidName: 'Said their name is', pinFail: 'Wrong code ({n} attempts)', pinLocked: 'Code entry locked (too many wrong codes)',
-      act_pin: 'Ask for name + access code', pins: 'Access codes (PIN)', pinsHint: 'Guests say their name and then their code out loud, in English or Spanish. A correct code opens the gate and the email tells you who came in.',
+      act_pin: 'Ask for access code', pins: 'Access codes (PIN)', pinsHint: 'When the call box calls, Gatekeeper says "Say code" and the guest says their code out loud, in English or Spanish. A correct code opens the gate and the email tells you who came in.',
       pinDays: 'Days', pinHours: 'Hours', always: 'Always', expires: 'Expires', never: 'Never (unlimited)', maxUses: 'Max uses', unlimited: 'Unlimited', once: 'Single use',
       usesLeft: '{n} left', expired: 'Expired', err_pintime: 'Check the guest hours (both times, or leave both empty for always).',
-      pinOff: 'Codes are saved but not requested yet. Turn them on in Mode → Outside schedules → "Ask for name + code" (or use that action in a schedule).', pinOffBtn: 'Turn codes on',
+      pinOff: 'Codes are saved but not requested yet. Turn them on in Mode → Outside schedules → "Ask for code" (or use that action in a schedule).', pinOffBtn: 'Turn codes on',
       ph_guest: 'e.g. Mom', ph_pin: '4821', ph_rule: 'e.g. Night', ph_time1: 'e.g. 09:00', ph_time2: 'e.g. 18:00', ph_date: 'e.g. 12/31/2026',
       ph_phone: 'e.g. +13055551234', ph_msg: 'e.g. No one can open right now, please call me.', validity: 'Validity',
       addPin: 'Add guest', pinName: 'Guest name', pinCode: 'Code', validFrom: 'Valid from', validTo: 'Valid until', anyDate: 'any date',
       uses: 'Used {n}×', lastUse: 'last', neverUsed: 'Never used', pinLen: 'Code length', digits: 'digits', attempts: 'Attempts', callOwner: 'Guests without a code can say "call" to be forwarded to my phone',
-      pinFailAct: 'After the last wrong attempt', outside: 'Outside schedules', out_open: 'Open right away', out_pin: 'Ask for name + code', lockNote: 'Code entry is locked until {t} because of repeated wrong codes.',
+      pinFailAct: 'After the last wrong attempt', outside: 'Outside schedules', out_open: 'Open right away', out_pin: 'Ask for code', lockNote: 'Code entry is locked until {t} because of repeated wrong codes.',
       err_pin: 'Each guest needs a code of exactly {n} digits.', err_pindup: 'Two guests have the same code.', sumByCode: 'Came in with a code',
       subjectLock: 'Gatekeeper: code entry locked', lockMail: 'Too many wrong codes in the last hour. Code entry is locked for 60 minutes. Calls follow the "after the last wrong attempt" action.',
       caller: 'Caller', duration: 'Duration', openSignal: 'Open signal', sent: 'Sent', no: 'No', callBox: 'Call box',
@@ -94,15 +94,15 @@ const I18N = {
       rejected: 'Llamada rechazada', message: 'Mensaje y corte', fwd_answered: 'Desviada · atendiste',
       fwd_missed: 'Desviada · no atendiste', fwd_opened: 'Desviada · se abrió igual', opened_alert: 'Abierto en horario restringido',
       heard: 'Escuchado', opened_pin: 'Entró {n}', guest: 'Invitado', saidName: 'Dijo llamarse', pinFail: 'Código incorrecto ({n} intentos)', pinLocked: 'Códigos bloqueados (demasiados intentos fallidos)',
-      act_pin: 'Pedir nombre + código', pins: 'Códigos de acceso (PIN)', pinsHint: 'El invitado dice su nombre y después su código en voz alta, en español o inglés. Si el código es correcto se abre el gate y el email te dice quién entró.',
+      act_pin: 'Pedir código', pins: 'Códigos de acceso (PIN)', pinsHint: 'Al llamar, Gatekeeper dice "Say code" y el invitado dice su código en voz alta, en español o inglés. Si el código es correcto se abre el gate y el email te dice quién entró.',
       pinDays: 'Días', pinHours: 'Horario', always: 'Siempre', expires: 'Vence', never: 'Nunca (ilimitado)', maxUses: 'Usos máximos', unlimited: 'Ilimitados', once: 'Un solo uso',
       usesLeft: 'quedan {n}', expired: 'Vencido', err_pintime: 'Revisá el horario del invitado (las dos horas, o dejá ambas vacías para siempre).',
-      pinOff: 'Los códigos están guardados pero todavía no se piden. Activalos en Modo → Fuera de los horarios → "Pedir nombre + código" (o usá esa acción en un horario).', pinOffBtn: 'Activar códigos',
+      pinOff: 'Los códigos están guardados pero todavía no se piden. Activalos en Modo → Fuera de los horarios → "Pedir código" (o usá esa acción en un horario).', pinOffBtn: 'Activar códigos',
       ph_guest: 'ej. Mamá', ph_pin: '4821', ph_rule: 'ej. Noche', ph_time1: 'ej. 09:00', ph_time2: 'ej. 18:00', ph_date: 'ej. 31/12/2026',
       ph_phone: 'ej. +13055551234', ph_msg: 'ej. En este momento no podemos abrir, por favor llamame.', validity: 'Vigencia',
       addPin: 'Agregar invitado', pinName: 'Nombre del invitado', pinCode: 'Código', validFrom: 'Válido desde', validTo: 'Válido hasta', anyDate: 'cualquier fecha',
       uses: 'Usado {n} veces', lastUse: 'último', neverUsed: 'Sin usar todavía', pinLen: 'Largo del código', digits: 'dígitos', attempts: 'Intentos', callOwner: 'Quien no tenga código puede decir "llamar" y se desvía a mi celular',
-      pinFailAct: 'Después del último intento fallido', outside: 'Fuera de los horarios', out_open: 'Abrir directo', out_pin: 'Pedir nombre + código', lockNote: 'Los códigos están bloqueados hasta las {t} por intentos fallidos repetidos.',
+      pinFailAct: 'Después del último intento fallido', outside: 'Fuera de los horarios', out_open: 'Abrir directo', out_pin: 'Pedir código', lockNote: 'Los códigos están bloqueados hasta las {t} por intentos fallidos repetidos.',
       err_pin: 'Cada invitado necesita un código de exactamente {n} dígitos.', err_pindup: 'Hay dos invitados con el mismo código.', sumByCode: 'Entraron con código',
       subjectLock: 'Gatekeeper: códigos bloqueados', lockMail: 'Hubo demasiados códigos incorrectos en la última hora. Los códigos quedan bloqueados 60 minutos y las llamadas siguen la acción "después del último intento fallido".',
       caller: 'Llamó', duration: 'Duración', openSignal: 'Apertura', sent: 'Enviado', no: 'No', callBox: 'Portero',
@@ -267,7 +267,7 @@ function answerCall_(p) {
       return xmlOut_(a.twiml);
     }
     putRec_(p.CallSid, Object.assign({ o: 'pin_pending' }, why));
-    return xmlOut_(gather_('name', 1, sayBoth_('Diga su nombre.', 'Say your name.')));
+    return xmlOut_(gather_('pin', 1, sayEn_('Say code.')));      // short prompt, code only (less echo on call boxes)
   }
   const a = runAction_(s.action, c);
   putRec_(p.CallSid, Object.assign({ o: a.o }, why));
@@ -290,6 +290,7 @@ function runAction_(action, c) {
 // ---------------------------------------------------------------------
 //  1b) GUEST CODES — ask name, then PIN, by voice (Spanish or English)
 // ---------------------------------------------------------------------
+function sayEn_(en) { return '<Say language="en-US" voice="Polly.Joanna">' + xml_(en) + '</Say>'; }
 function sayBoth_(es, en) {
   return '<Say language="es-MX" voice="Polly.Mia">' + xml_(es) + '</Say><Say language="en-US" voice="Polly.Joanna">' + xml_(en) + '</Say>';
 }
@@ -341,7 +342,7 @@ function pinStep_(p) {
   }
   if (n < o.attempts) {
     putRec_(p.CallSid, rec);
-    return xmlOut_(gather_('pin', n + 1, sayBoth_('Código incorrecto. Repita su código.', 'Wrong code. Say it again.')));
+    return xmlOut_(gather_('pin', n + 1, sayEn_('Wrong code. Say code.')));
   }
   recordPinFail_();
   const a = runAction_(o.fail, c);
